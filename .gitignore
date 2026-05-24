@@ -1,0 +1,29 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# ── Virtual environments ──────────────────────────────────────────────────────
+venv/
+env/
+.venv/
+.env/
+
+# ── App secrets & local state (NEVER commit these) ───────────────────────────
+.secret_key
+*.db
+*.sqlite3
+
+# ── Environment variables ─────────────────────────────────────────────────────
+.env
+.env.local
+
+# ── OS / editor junk ─────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/

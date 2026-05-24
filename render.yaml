@@ -1,0 +1,46 @@
+# render.yaml  –  Infrastructure-as-code for Render.com
+#
+# How to use
+# ----------
+# 1. Push this file to your GitHub repo (root level).
+# 2. On Render → New → Blueprint → connect your repo.
+#    Render reads this file and creates the service automatically.
+#
+# Alternatively, create the Web Service manually in the Render dashboard
+# and use the settings below as reference.
+
+services:
+  - type: web
+    name: oxford-vocab-trainer
+    runtime: python
+    # Build: install Python dependencies
+    buildCommand: pip install -r requirements.txt
+    # Start: Gunicorn in production mode; Render supplies $PORT automatically
+    startCommand: gunicorn "app:create_app('production')" --workers 2 --bind 0.0.0.0:$PORT --timeout 120
+    # Auto-deploy whenever you push to the main branch
+    autoDeploy: true
+
+    envVars:
+      # Render generates a cryptographically secure random value automatically
+      - key: SECRET_KEY
+        generateValue: true
+      # Tell Flask/config.py which configuration class to use
+      - key: FLASK_ENV
+        value: production
+      # SQLite database location on the persistent disk (see disk section below)
+      - key: DB_PATH
+        value: /data/vocab_app.db
+
+    # ── Persistent disk ($1 / month, 1 GB) ────────────────────────────────────
+    # Without this, the SQLite database is wiped on every deploy or restart.
+    # User progress (SRS intervals, streaks) will be LOST without this disk.
+    # The Oxford 3000 PDF is re-parsed automatically on first visit if words
+    # are missing, so word data always recovers — but user progress will not.
+    #
+    # To skip the disk (demo / testing only): delete the 'disk' section below
+    # and remove the DB_PATH env var above.  The DB will live at project root
+    # but reset on every deploy.
+    disk:
+      name: vocab-data
+      mountPath: /data
+      sizeGB: 1

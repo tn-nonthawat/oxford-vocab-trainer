@@ -1,0 +1,60 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   custom.css  –  Oxford 3000 Vocabulary Trainer
+   Supplement to Tailwind CDN; defines animations and component-specific rules.
+   Loaded by base.html via <link> so every page inherits these styles.
+───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Page background ────────────────────────────────────────────────────────── */
+body { background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%); }
+
+/* ── Input focus – remove default browser outline ring across all pages ──────── */
+/* Tailwind's focus:border-* utilities handle the visual cue instead.            */
+input:focus { outline: none; }
+
+/* ── Import progress bar ─────────────────────────────────────────────────────── */
+.bar-stripe {
+  background: linear-gradient(90deg, #3b82f6 25%, #60a5fa 50%, #3b82f6 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s linear infinite;
+}
+#import-fill { transition: width .65s ease; }
+
+/* ── Flashcard 3-D flip ──────────────────────────────────────────────────────── */
+.card-scene  { perspective: 1200px; }
+.card-inner  {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .6s cubic-bezier(.4, 0, .2, 1);
+}
+.card-inner.flipped { transform: rotateY(180deg); }
+.card-face   { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.card-back   { transform: rotateY(180deg); }
+
+/* ── Rating buttons hover lift ───────────────────────────────────────────────── */
+.rate-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .08);
+}
+.rate-btn {
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s;
+}
+.rate-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Keyframe animations (mirrored in tailwind.config for CDN-mode classes) ─── */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+.animate-fadeIn  { animation: fadeIn  0.4s  ease-out both; }
+.animate-slideUp { animation: slideUp 0.35s ease-out both; }

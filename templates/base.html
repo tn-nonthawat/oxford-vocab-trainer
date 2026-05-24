@@ -1,0 +1,100 @@
+{#
+  base.html  –  Master layout for the Oxford 3000 Vocabulary Trainer.
+
+  Blocks exposed to child templates
+  ----------------------------------
+  title        : <title> text   (default: "Oxford 3000 – Vocabulary Trainer")
+  extra_head   : extra <link>/<meta> in <head>
+  body_class   : class attr on <body>  (default: fluid app layout)
+  header       : the sticky top bar / navbar  (empty by default – each page owns it)
+  main_class   : class attr on <main>  (default: centred content column)
+  content      : page body
+  footer       : text inside <footer>
+  scripts      : inline <script> injected BEFORE app.js  (use for INIT_* constants)
+  js_file      : the external app.js <script> tag – override to "" to suppress it
+                 (e.g. login page doesn't need app.js)
+#}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}Oxford 3000 – Vocabulary Trainer{% endblock %}</title>
+
+  <!-- Tailwind CSS (CDN) + custom keyframes config -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          keyframes: {
+            shimmer: {
+              "0%":   { backgroundPosition: "-200% 0" },
+              "100%": { backgroundPosition:  "200% 0" },
+            },
+            fadeIn: {
+              from: { opacity: 0, transform: "translateY(14px)" },
+              to:   { opacity: 1, transform: "translateY(0)"    },
+            },
+            slideUp: {
+              from: { opacity: 0, transform: "translateY(28px)" },
+              to:   { opacity: 1, transform: "translateY(0)"    },
+            },
+          },
+          animation: {
+            shimmer: "shimmer 1.8s linear infinite",
+            fadeIn:  "fadeIn  0.4s ease-out both",
+            slideUp: "slideUp 0.35s ease-out both",
+          },
+        },
+      },
+    };
+  </script>
+
+  <!-- Custom styles (animations, card-flip, progress bar, etc.) -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="{% block body_class %}min-h-screen font-sans text-gray-800{% endblock %}">
+
+  {% block header %}{% endblock %}
+
+  <!-- ── Toast notification ──────────────────────────────────────────────────
+       Visibility is managed entirely via inline styles in showToast() (app.js).
+       Using Tailwind opacity/transform classes here would conflict with JS.
+  ─────────────────────────────────────────────────────────────────────────── -->
+  <div id="toast"
+       class="fixed top-20 left-1/2 z-50
+              bg-gray-900 text-white text-sm px-5 py-3 rounded-xl shadow-xl
+              max-w-sm text-center"
+       style="opacity:0; transform:translateX(-50%) translateY(-10px);
+              pointer-events:none; transition:opacity .3s ease, transform .3s ease;">
+  </div>
+
+  <!-- ── Main content area ───────────────────────────────────────────────── -->
+  <main class="{% block main_class %}max-w-4xl mx-auto px-5 py-10{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Footer ──────────────────────────────────────────────────────────── -->
+  <footer class="text-center text-xs text-gray-400 py-6">
+    {% block footer %}{% endblock %}
+  </footer>
+
+  <!-- ── Scripts ─────────────────────────────────────────────────────────────
+       scripts  : inline block for page-specific variables (e.g. INIT_TOTAL).
+                  dashboard.html writes its INIT_* constants here so they are
+                  defined BEFORE app.js boots.
+       js_file  : the external bundle.  Override to an empty block on pages
+                  that don't need it (login, etc.).
+  ─────────────────────────────────────────────────────────────────────────── -->
+  {% block scripts %}{% endblock %}
+
+  {% block js_file %}
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% endblock %}
+
+</body>
+</html>

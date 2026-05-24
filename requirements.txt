@@ -1,0 +1,15 @@
+# Oxford 3000 Vocabulary Trainer — Production Dependencies
+#
+# Install:   pip install -r requirements.txt
+# Run (dev): python app.py
+# Run (prod): gunicorn "app:create_app('production')" --workers 2 --bind 0.0.0.0:8000
+
+# ── Web framework ──────────────────────────────────────────────────────────────
+Flask>=3.0
+Werkzeug>=3.0          # password hashing (generate_password_hash / check_password_hash)
+
+# ── PDF parsing (word list import) ────────────────────────────────────────────
+pdfplumber>=0.10       # coordinate-aware PDF layout extraction
+
+# ── Production WSGI server ────────────────────────────────────────────────────
+gunicorn>=21.0         # multi-worker server; replaces Flask dev server in production
