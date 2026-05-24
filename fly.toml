@@ -1,0 +1,35 @@
+# fly.toml  –  Fly.io configuration for Oxford 3000 Vocabulary Trainer
+#
+# Region: Singapore (sin) — closest to Thailand
+# Free tier: shared-cpu-1x, 256 MB RAM, 3 GB persistent volume
+
+app            = "oxford-vocab-tn"
+primary_region = "sin"
+
+# Use the Dockerfile at the project root
+[build]
+
+# Environment variables (non-secret; secrets are set via 'fly secrets set')
+[env]
+  FLASK_ENV = "production"
+  DB_PATH   = "/data/vocab_app.db"
+
+# HTTP service configuration
+[http_service]
+  internal_port       = 8000
+  force_https         = true
+  auto_stop_machines  = "stop"   # spin down when idle (free tier behaviour)
+  auto_start_machines = true     # spin back up on first request
+  min_machines_running = 0
+
+# ── Persistent volume ──────────────────────────────────────────────────────────
+# Mounts the 'vocab_data' volume at /data so SQLite data survives restarts
+# and re-deploys.  Created with: fly volumes create vocab_data --region sin --size 1
+[[mounts]]
+  source      = "vocab_data"
+  destination = "/data"
+
+# ── Machine size ───────────────────────────────────────────────────────────────
+[[vm]]
+  size   = "shared-cpu-1x"
+  memory = "256mb"
