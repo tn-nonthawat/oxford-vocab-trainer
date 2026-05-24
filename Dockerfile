@@ -22,7 +22,7 @@ EXPOSE 8000
 # Start Gunicorn in production mode
 # Shell form is used here so the single quotes inside the app reference work correctly
 CMD gunicorn "app:create_app('production')" \
-    --workers 2 \
+    --workers 1 \
     --bind 0.0.0.0:8000 \
     --timeout 120 \
     --access-logfile - \
