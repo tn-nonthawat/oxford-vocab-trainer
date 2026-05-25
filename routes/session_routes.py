@@ -2,10 +2,15 @@
 routes/session_routes.py  –  Dashboard and SRS session Blueprint.
 
 Blueprint name : "session"
-URL prefix     : (none — routes mount at /, /api/*, /import-*)
+URL prefix     : (none — routes mount at /, /api/*, /import-*, /react-dashboard/*)
 """
 
-from flask import Blueprint, jsonify, redirect, render_template, request, session, url_for
+import os
+
+from flask import Blueprint, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+
+# Absolute path to the compiled React bundle (built by Vite, copied in Dockerfile)
+_REACT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "react")
 
 from database import get_connection
 from models.auth import login_required
@@ -24,7 +29,26 @@ from srs import calculate_next_review
 session_bp = Blueprint("session", __name__)
 
 
-# ── Dashboard ─────────────────────────────────────────────────────────────────
+# ── React Dashboard (SPA) ─────────────────────────────────────────────────────
+# The Vite build is at static/react/ (copied by Dockerfile Stage 1).
+# Vite is configured with base: '/react-dashboard/' so every asset URL is
+# already absolute, e.g. /react-dashboard/assets/index-abc123.js.
+
+@session_bp.route("/react-dashboard")
+@session_bp.route("/react-dashboard/")
+@login_required
+def react_dashboard():
+    """Serve the React SPA shell.  Auth is checked here; /api/* checks it again."""
+    return send_from_directory(_REACT_DIR, "index.html")
+
+
+@session_bp.route("/react-dashboard/assets/<path:filename>")
+def react_assets(filename: str):
+    """Serve the hashed JS/CSS bundles that Vite puts in assets/."""
+    return send_from_directory(os.path.join(_REACT_DIR, "assets"), filename)
+
+
+# ── Classic Jinja Dashboard (/  →  original template) ────────────────────────
 
 @session_bp.route("/")
 @login_required
@@ -211,6 +235,7 @@ def api_stats():
     streak   = _get_streak(user_id)
     mastery  = _mastery_stats(user_id)
     return jsonify({
+        "username"    : session.get("username", ""),
         "total"       : total,
         "level_counts": level_counts,
         **progress,

@@ -24,6 +24,11 @@ env/
 # Windows scripts (not needed on the server)
 *.bat
 
+# React — node_modules are installed inside the Docker build (Stage 1),
+# so we never need to send the local copy to the build context.
+dashboard-react/node_modules/
+dashboard-react/dist/
+
 # Editor / OS junk
 .DS_Store
 Thumbs.db

@@ -7,13 +7,19 @@ machine has a dead BIOS battery and its RTC may drift or reset after reboots.
 
 A 60-second in-memory cache avoids redundant HTTP calls within a single
 request or across rapid back-to-back requests.
+
+Fallback: if the API is unreachable, zoneinfo is used to compute the correct
+Asia/Bangkok date locally — independent of the server's system timezone.
 """
 
 import json
 import sys
 import time
 import urllib.request
-from datetime import date
+from datetime import date, datetime
+from zoneinfo import ZoneInfo
+
+_BANGKOK_TZ = ZoneInfo("Asia/Bangkok")
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 _date_cache: dict = {"value": None, "ts": 0.0}
@@ -48,10 +54,10 @@ def get_current_date() -> date:
             result = date.fromisoformat(payload["datetime"][:10])
     except Exception as exc:
         print(
-            f"[date] API unavailable ({exc}); falling back to system clock.",
+            f"[date] API unavailable ({exc}); falling back to zoneinfo (Asia/Bangkok).",
             file=sys.stderr,
         )
-        result = date.today()
+        result = datetime.now(_BANGKOK_TZ).date()
 
     _date_cache["value"] = result
     _date_cache["ts"]    = now
