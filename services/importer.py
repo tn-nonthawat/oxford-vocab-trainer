@@ -146,19 +146,53 @@ def _do_import() -> None:
                 _set(pages_done=i, words_found=len(collected),
                      message=f"Page {i}/{total_pages} – {len(collected)} words …")
 
-        _set(message="Writing to database …")
+        _set(message="Merging into database …")
         conn = get_connection()
         cur  = conn.cursor()
-        cur.execute("DELETE FROM progress")
-        cur.execute("DELETE FROM words")
-        cur.executemany(
-            "INSERT INTO words (word, pos, cefr_level) VALUES (?, ?, ?)",
-            collected,
-        )
+
+        # ── Load existing words so we can diff without touching progress ──────
+        cur.execute("SELECT id, word, pos, cefr_level FROM words")
+        existing: dict[tuple[str, str], tuple[int, str]] = {
+            (r["word"], r["pos"]): (r["id"], r["cefr_level"])
+            for r in cur.fetchall()
+        }
+
+        to_insert: list[tuple[str, str, str]] = []
+        to_update: list[tuple[str, int]] = []   # (new_cefr, word_id)
+
+        for word, pos, cefr in collected:
+            key = (word, pos)
+            if key in existing:
+                word_id, old_cefr = existing[key]
+                if old_cefr != cefr:
+                    to_update.append((cefr, word_id))
+            else:
+                to_insert.append((word, pos, cefr))
+
+        if to_insert:
+            cur.executemany(
+                "INSERT INTO words (word, pos, cefr_level) VALUES (?, ?, ?)",
+                to_insert,
+            )
+        if to_update:
+            cur.executemany(
+                "UPDATE words SET cefr_level = ? WHERE id = ?",
+                to_update,
+            )
+
         conn.commit()
         conn.close()
-        _set(status="done", words_found=len(collected),
-             message=f"Done! {len(collected)} words imported.")
+
+        total_in_db = len(existing) + len(to_insert)
+        _set(
+            status="done",
+            words_found=total_in_db,
+            message=(
+                f"Done! {total_in_db} words total "
+                f"(+{len(to_insert)} new, {len(to_update)} updated). "
+                f"All user progress preserved."
+            ),
+        )
 
     except Exception as exc:
         _set(status="error", message=f"Import failed: {exc}")
