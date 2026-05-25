@@ -758,6 +758,9 @@ export default function Dashboard({ onStartSession }) {
   const rowH   = width < 640 ? 38 : 44
   const margin = [12, 12]
 
+  // ── Edit-mode toggle (must click to enable dragging) ──────────────────────
+  const [editMode, setEditMode] = useState(false)
+
   // ── Layout state (persisted to localStorage) ───────────────────────────────
   const [layouts, setLayouts] = useState(loadLayouts)
 
@@ -835,7 +838,22 @@ export default function Dashboard({ onStartSession }) {
               ↺ Re-import
             </button>
           )}
-          <ResetButton onReset={handleReset} />
+
+          {/* ✏️ Edit Layout / ✓ Done toggle */}
+          {editMode && <ResetButton onReset={handleReset} />}
+          <button
+            onClick={() => setEditMode(e => !e)}
+            className={[
+              'no-drag flex items-center gap-1.5 text-xs font-semibold',
+              'px-3 py-1.5 rounded-full transition-all duration-150 cursor-pointer shadow-sm select-none',
+              editMode
+                ? 'bg-blue-600 text-white border border-blue-500 hover:bg-blue-700'
+                : 'bg-white text-gray-500 border border-gray-200 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50',
+            ].join(' ')}
+            title={editMode ? 'Exit layout editing' : 'Enter layout editing mode'}
+          >
+            {editMode ? '✓ Done' : '✏️ Edit Layout'}
+          </button>
           <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
             <span className="hidden sm:flex items-center gap-1.5 text-xs font-medium
                              text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full select-none">
@@ -922,23 +940,36 @@ export default function Dashboard({ onStartSession }) {
       {ReimportOverlay}
       {Navbar}
 
-      {/* ── Drag hint banner ─────────────────────────────────────────────── */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-1">
-        <div className="flex items-center gap-2 text-xs text-gray-400 select-none">
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor" className="opacity-60">
-            <circle cx="5" cy="4"  r="1.4"/>
-            <circle cx="11" cy="4"  r="1.4"/>
-            <circle cx="5" cy="8"  r="1.4"/>
-            <circle cx="11" cy="8"  r="1.4"/>
-            <circle cx="5" cy="12" r="1.4"/>
-            <circle cx="11" cy="12" r="1.4"/>
-          </svg>
-          <span>Drag any card to rearrange — layout is saved automatically</span>
+      {/* ── Banner: edit-mode active ──────────────────────────────────────── */}
+      {editMode ? (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-1">
+          <div className="flex items-center gap-2.5 text-xs font-medium
+                          text-blue-700 bg-blue-50 border border-blue-200
+                          rounded-xl px-4 py-2.5 select-none animate-slideUp">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor">
+              <circle cx="5" cy="4"  r="1.4"/>
+              <circle cx="11" cy="4"  r="1.4"/>
+              <circle cx="5" cy="8"  r="1.4"/>
+              <circle cx="11" cy="8"  r="1.4"/>
+              <circle cx="5" cy="12" r="1.4"/>
+              <circle cx="11" cy="12" r="1.4"/>
+            </svg>
+            <span>
+              Drag any card to rearrange — click{' '}
+              <strong>✓ Done</strong> when finished
+            </span>
+          </div>
         </div>
-      </div>
+      ) : (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-1">
+          <p className="text-xs text-gray-400 select-none">
+            Click <strong className="text-gray-500">✏️ Edit Layout</strong> to rearrange cards
+          </p>
+        </div>
+      )}
 
       {/* ── Draggable grid ───────────────────────────────────────────────── */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pb-10">
+      <main className={`max-w-7xl mx-auto px-4 sm:px-6 pb-10 ${editMode ? 'edit-mode' : ''}`}>
         <GridLayout
           layout={currentLayout}
           cols={cols}
@@ -947,6 +978,7 @@ export default function Dashboard({ onStartSession }) {
           width={Math.min(width - 32, 1280)}
           onLayoutChange={handleLayoutChange}
           draggableCancel=".no-drag"
+          isDraggable={editMode}
           resizable={false}
           compactType="vertical"
           preventCollision={false}

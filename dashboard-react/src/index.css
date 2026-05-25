@@ -16,11 +16,20 @@ body {
 
 .react-grid-item {
   transition: transform 200ms ease, box-shadow 200ms ease, opacity 200ms ease;
-  cursor: grab;
+  cursor: default;          /* grab cursor only in edit mode (see below) */
 }
 
-.react-grid-item:active {
+/* Edit mode — unlock dragging cursor */
+.edit-mode .react-grid-item {
+  cursor: grab;
+}
+.edit-mode .react-grid-item:active {
   cursor: grabbing;
+}
+
+/* Subtle ring on every card while editing */
+.edit-mode .card-base {
+  box-shadow: 0 0 0 2px #bfdbfe, 0 4px 12px rgba(0,0,0,.06);
 }
 
 /* Dragging state */
@@ -48,13 +57,14 @@ body {
 }
 
 /* ── Drag handle hint icon ─────────────────────────────────────────────── */
+/* Hidden by default; only visible when edit mode is active */
 .drag-hint {
   opacity: 0;
   transition: opacity 0.2s ease;
   pointer-events: none;
 }
 
-.react-grid-item:hover .drag-hint {
+.edit-mode .react-grid-item:hover .drag-hint {
   opacity: 1;
 }
 
