@@ -2,14 +2,16 @@
 routes/session_routes.py  –  Dashboard and SRS session Blueprint.
 
 Blueprint name : "session"
-URL prefix     : (none — routes mount at /, /api/*, /import-*, /react-dashboard/*)
+URL prefix     : (none — routes mount at /, /api/*, /import-*)
 """
 
 import os
 
-from flask import Blueprint, jsonify, redirect, render_template, request, send_from_directory, session, url_for
+from flask import Blueprint, jsonify, request, send_from_directory, session
 
-# Absolute path to the compiled React bundle (built by Vite, copied in Dockerfile)
+# Absolute path to the compiled React bundle (built by Vite → static/react/).
+# Locally: `npm run build` inside dashboard-react/ outputs here directly.
+# Docker:  Stage 1 builds, Stage 2 copies /static/react → ./static/react.
 _REACT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "react")
 
 from database import get_connection
@@ -30,48 +32,19 @@ session_bp = Blueprint("session", __name__)
 
 
 # ── React Dashboard (SPA) ─────────────────────────────────────────────────────
-# The Vite build is at static/react/ (copied by Dockerfile Stage 1).
-# Vite is configured with base: '/react-dashboard/' so every asset URL is
-# already absolute, e.g. /react-dashboard/assets/index-abc123.js.
-
-@session_bp.route("/react-dashboard")
-@session_bp.route("/react-dashboard/")
-@login_required
-def react_dashboard():
-    """Serve the React SPA shell.  Auth is checked here; /api/* checks it again."""
-    return send_from_directory(_REACT_DIR, "index.html")
-
-
-@session_bp.route("/react-dashboard/assets/<path:filename>")
-def react_assets(filename: str):
-    """Serve the hashed JS/CSS bundles that Vite puts in assets/."""
-    return send_from_directory(os.path.join(_REACT_DIR, "assets"), filename)
-
-
-# ── Classic Jinja Dashboard (/  →  original template) ────────────────────────
+# Vite is configured with base: '/' so assets are at /assets/index-abc123.js.
 
 @session_bp.route("/")
 @login_required
 def index():
-    user_id = session["user_id"]
-    total, level_counts = _word_counts()
-    state = _snapshot()
-    if total == 0 and state["status"] == "idle":
-        _start_import()
-        state = _snapshot()
-    progress = _progress_stats(user_id)
-    streak   = _get_streak(user_id)
-    mastery  = _mastery_stats(user_id)
-    return render_template(
-        "dashboard.html",
-        total        = total,
-        level_counts = level_counts,
-        state        = state,
-        progress     = progress,
-        streak       = streak,
-        mastery      = mastery,
-        username     = session.get("username", ""),
-    )
+    """Serve the React SPA shell.  Auth is checked here; /api/* checks it again."""
+    return send_from_directory(_REACT_DIR, "index.html")
+
+
+@session_bp.route("/assets/<path:filename>")
+def react_assets(filename: str):
+    """Serve the hashed JS/CSS bundles that Vite puts in assets/."""
+    return send_from_directory(os.path.join(_REACT_DIR, "assets"), filename)
 
 
 # ── Import routes ─────────────────────────────────────────────────────────────

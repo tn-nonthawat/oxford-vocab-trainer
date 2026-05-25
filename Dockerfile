@@ -32,7 +32,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Copy the compiled React bundle into Flask's static folder
-COPY --from=frontend-builder /frontend/dist ./static/react
+COPY --from=frontend-builder /static/react ./static/react
 
 # Create the data directory; on Fly.io this is replaced by the persistent volume
 RUN mkdir -p /data

@@ -1,0 +1,108 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Page background ─────────────────────────────────────────────────────── */
+body {
+  background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);
+  min-height: 100vh;
+  font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+
+/* ── React-Grid-Layout overrides ─────────────────────────────────────────── */
+.react-grid-layout {
+  position: relative;
+}
+
+.react-grid-item {
+  transition: transform 200ms ease, box-shadow 200ms ease, opacity 200ms ease;
+  cursor: grab;
+}
+
+.react-grid-item:active {
+  cursor: grabbing;
+}
+
+/* Dragging state */
+.react-grid-item.react-draggable-dragging {
+  opacity: 0.75;
+  transform: scale(1.02) !important;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18) !important;
+  z-index: 100;
+  cursor: grabbing;
+}
+
+/* Placeholder slot while dragging */
+.react-grid-item.react-grid-placeholder {
+  background: #dbeafe;
+  border: 2px dashed #3b82f6;
+  border-radius: 16px;
+  opacity: 0.6;
+  transition: all 200ms ease;
+  box-shadow: none !important;
+}
+
+/* Resizing handle — hidden since we don't want resize */
+.react-resizable-handle {
+  display: none;
+}
+
+/* ── Drag handle hint icon ─────────────────────────────────────────────── */
+.drag-hint {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
+.react-grid-item:hover .drag-hint {
+  opacity: 1;
+}
+
+/* ── Smooth height transitions ─────────────────────────────────────────── */
+.react-grid-item.resizing {
+  will-change: width, height;
+}
+
+/* ── Progress bar fill ─────────────────────────────────────────────────── */
+.progress-fill {
+  transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Flashcard 3-D flip (used by Session.jsx NewWordCard) ──────────────── */
+.card-scene  { perspective: 1200px; }
+.card-inner  {
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform .6s cubic-bezier(.4, 0, .2, 1);
+}
+.card-inner.flipped { transform: rotateY(180deg); }
+.card-face   { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.card-back   { transform: rotateY(180deg); }
+
+/* ── Rating-button hover lift ──────────────────────────────────────────── */
+.rate-btn {
+  transition: transform .15s ease, box-shadow .15s ease, opacity .15s;
+}
+.rate-btn:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0,0,0,.08);
+}
+.rate-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Slide-up entrance animation ───────────────────────────────────────── */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+.animate-slideUp { animation: slideUp 0.35s ease-out both; }
+
+/* ── Card hover lift ───────────────────────────────────────────────────── */
+.card-base:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.10);
+}
+
+/* Don't apply card-base hover when the grid item itself is being dragged */
+.react-draggable-dragging .card-base:hover {
+  transform: none;
+}
