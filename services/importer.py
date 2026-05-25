@@ -28,10 +28,15 @@ PDF_PATH = os.path.join(_ROOT, "American_Oxford_3000.pdf")
 
 
 # ── POS / CEFR regexes ────────────────────────────────────────────────────────
+# "number" covers cardinal/ordinal numerals (one, two, hundred, million …)
+# "indefinite article" covers "a" and "an"
+# Longer tags must come before shorter ones so the alternation matches greedily.
 POS_TAGS = [
+    "indefinite article",                               # a, an
+    "definite article",                                 # the
     "exclam.", "modal", "suffix", "prefix", "abbr.",
     "prep.", "conj.", "pron.", "det.", "adj.", "adv.",
-    "num.", "n.", "v.",
+    "number", "num.", "n.", "v.",
 ]
 _pos_alt = "|".join(re.escape(t) for t in POS_TAGS)
 POS_RE   = re.compile(rf"(?<![A-Za-z])({_pos_alt})(?![a-z])")
@@ -87,11 +92,20 @@ def _triples_from_line(line: str):
         raw       = segment[: first_pos.start()]
         raw       = re.sub(r"\([^)]*\)", " ", raw)
         raw       = re.sub(r"[^A-Za-z\s\-]", " ", raw)
-        tokens    = [
+        # Allow single-letter words (e.g. "a", "the") for article POS tags.
+        _article = pos in ("indefinite article", "definite article")
+        min_len  = 1 if _article else 2
+        tokens   = [
             t for t in raw.split()
-            if re.fullmatch(r"[a-z][a-z\-]*", t, re.IGNORECASE) and len(t) > 1
+            if re.fullmatch(r"[a-z][a-z\-]*", t, re.IGNORECASE) and len(t) >= min_len
         ]
-        if tokens:
+        if not tokens:
+            continue
+        if _article:
+            # "a, an" / "the" → emit each headword as its own row.
+            for t in tokens:
+                yield t.lower(), pos, cefr
+        else:
             yield " ".join(tokens[-3:]).strip().lower(), pos, cefr
 
 
