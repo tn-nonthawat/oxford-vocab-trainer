@@ -1414,6 +1414,7 @@ const _PILL_INACTIVE = { background: "#f3f4f6", color: "#6b7280" };  // gray-100
 
 function selectLevel(lvl) {
   selectedLevel = lvl;
+  localStorage.setItem("cefrLevel", lvl);   // remember across page loads
   ["all", "A1", "A2", "B1", "B2"].forEach(l => {
     const pill = $("lvl-pill-" + l);
     if (!pill) return;
@@ -1487,8 +1488,8 @@ function showToast(msg, ms = 3000) {
   } else {
     showPanel("dashboard");
   }
-  // Initialise level-filter pills so "All" starts highlighted
-  selectLevel("all");
+  // Restore saved CEFR filter (or default to "all")
+  selectLevel(localStorage.getItem("cefrLevel") || "all");
 })();
 </script>
 
