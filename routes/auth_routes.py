@@ -20,7 +20,7 @@ import sqlite3
 from flask import Blueprint, redirect, render_template, request, session, url_for
 
 from database import get_connection
-from extensions import limiter
+from extensions import csrf, limiter
 from models.auth import hash_password, verify_password
 
 auth_bp = Blueprint("auth", __name__)
@@ -140,6 +140,7 @@ def register():
 # ── Logout ────────────────────────────────────────────────────────────────────
 
 @auth_bp.route("/logout", methods=["POST"])
+@csrf.exempt   # React sends no CSRF token; logout only destroys the session (low risk)
 def logout():
     """POST-only logout prevents CSRF-logout attacks via crafted links."""
     session.clear()
