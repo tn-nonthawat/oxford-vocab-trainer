@@ -1121,7 +1121,10 @@ export default function Dashboard({ onStartSession }) {
               {/* Logout */}
               <div className="border-t border-gray-100 mt-1 pt-1">
                 <button
-                  onClick={() => { window.location.href = '/logout' }}
+                  onClick={() => {
+                    fetch('/logout', { method: 'POST' })
+                      .finally(() => { window.location.href = '/login' })
+                  }}
                   className="w-full text-left px-4 py-2.5 text-sm text-red-500
                              hover:bg-red-50 flex items-center gap-2.5
                              transition-colors cursor-pointer"

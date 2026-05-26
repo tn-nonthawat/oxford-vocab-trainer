@@ -79,6 +79,7 @@ def import_status():
 
 @session_bp.route("/api/new-session")
 @login_required
+@limiter.limit("30 per minute")
 def api_new_session():
     """
     10 random words this user has never studied.
@@ -121,6 +122,7 @@ def api_new_session():
 
 @session_bp.route("/api/review-session")
 @login_required
+@limiter.limit("30 per minute")
 def api_review_session():
     """Words due for this user today or earlier, oldest first."""
     user_id = session["user_id"]
@@ -223,6 +225,7 @@ def api_submit_review():
 
 @session_bp.route("/api/stats")
 @login_required
+@limiter.limit("30 per minute")
 def api_stats():
     """Live dashboard stats for the logged-in user."""
     user_id = session["user_id"]

@@ -128,7 +128,8 @@ def register():
                 session["username"] = username
                 return redirect(url_for("session.index"))
             except sqlite3.IntegrityError:
-                error = "That username is already taken — please choose another."
+                # Vague message — don't confirm whether the username exists
+                error = "Could not create account — please try a different username."
             finally:
                 if conn:
                     conn.close()
@@ -138,7 +139,8 @@ def register():
 
 # ── Logout ────────────────────────────────────────────────────────────────────
 
-@auth_bp.route("/logout")
+@auth_bp.route("/logout", methods=["POST"])
 def logout():
+    """POST-only logout prevents CSRF-logout attacks via crafted links."""
     session.clear()
     return redirect(url_for("auth.login"))
