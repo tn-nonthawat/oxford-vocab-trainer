@@ -205,7 +205,19 @@ def _migrate() -> None:
         cur.execute("ALTER TABLE user_stats_v2 RENAME TO user_stats")
         print("[database] Migration: user_stats table upgraded.")
 
-    # ── 4. words: insert number words + articles that old parser missed ─────────
+    # ── 4. users: add is_admin column ────────────────────────────────────────────
+    cur.execute("PRAGMA table_info(users)")
+    user_cols = {r["name"] for r in cur.fetchall()}
+    if "is_admin" not in user_cols:
+        cur.execute("ALTER TABLE users ADD COLUMN is_admin INTEGER NOT NULL DEFAULT 0")
+        # Promote the first real (non-legacy) user to admin automatically.
+        cur.execute("""
+            UPDATE users SET is_admin = 1
+            WHERE id = (SELECT MIN(id) FROM users WHERE username != 'legacy')
+        """)
+        print("[database] Migration: added users.is_admin, first user promoted to admin.")
+
+    # ── 5. words: insert number words + articles that old parser missed ─────────
     # Original import predates support for pos="number" / "indefinite article" /
     # "definite article", so these Oxford-3000 entries were never written to DB.
     # This migration is idempotent: INSERT OR IGNORE is a no-op if the row exists.

@@ -87,6 +87,13 @@ def create_app(config_name: str = "default") -> Flask:
     app.register_blueprint(auth_bp)
     app.register_blueprint(session_bp)
 
+    # Exempt the JSON API / SPA blueprint from CSRF.
+    # These endpoints are protected by:
+    #   • Flask session cookie (HttpOnly, signed)
+    #   • Content-Type: application/json  (browser CORS blocks cross-origin JSON POST)
+    # Form-based endpoints (login / register) in auth_bp keep full CSRF protection.
+    csrf.exempt(session_bp)
+
     # Initialise database (creates tables + runs column migrations)
     with app.app_context():
         init_db()

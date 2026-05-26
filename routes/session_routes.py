@@ -5,9 +5,12 @@ Blueprint name : "session"
 URL prefix     : (none — routes mount at /, /api/*, /import-*)
 """
 
+import logging
 import os
 
-from flask import Blueprint, jsonify, request, send_from_directory, session
+from flask import Blueprint, current_app, jsonify, request, send_from_directory, session
+
+log = logging.getLogger(__name__)
 
 # Absolute path to the compiled React bundle (built by Vite → static/react/).
 # Locally: `npm run build` inside dashboard-react/ outputs here directly.
@@ -15,6 +18,7 @@ from flask import Blueprint, jsonify, request, send_from_directory, session
 _REACT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "static", "react")
 
 from database import get_connection
+from extensions import limiter
 from models.auth import login_required
 from services.date_service import get_current_date
 from services.dictionary import fetch_meaning
@@ -52,6 +56,15 @@ def react_assets(filename: str):
 @session_bp.route("/import-data", methods=["POST"])
 @login_required
 def import_data_route():
+    # Only admin users may trigger an import — it wipes and rebuilds the shared
+    # words table plus ALL users' progress rows.
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute("SELECT is_admin FROM users WHERE id = ?", (session["user_id"],))
+    row = cur.fetchone()
+    conn.close()
+    if not row or not row["is_admin"]:
+        return jsonify({"error": "Admin access required"}), 403
     started = _start_import()
     return jsonify({"started": started, "state": _snapshot()})
 
@@ -133,6 +146,7 @@ def api_review_session():
 
 @session_bp.route("/api/submit-review", methods=["POST"])
 @login_required
+@limiter.limit("60 per minute")
 def api_submit_review():
     """Accept {word_id, quality}; upsert this user's progress row via SM-2."""
     user_id = session["user_id"]
@@ -152,6 +166,13 @@ def api_submit_review():
 
         conn = get_connection()
         cur  = conn.cursor()
+
+        # Validate that word_id actually exists in the shared word list.
+        cur.execute("SELECT id FROM words WHERE id = ?", (word_id,))
+        if not cur.fetchone():
+            conn.close()
+            return jsonify({"error": "Word not found", "success": False}), 404
+
         cur.execute(
             "SELECT * FROM progress WHERE user_id = ? AND word_id = ?",
             (user_id, word_id),
@@ -191,7 +212,9 @@ def api_submit_review():
         return jsonify({"error": f"Bad request: {exc}", "success": False}), 400
 
     except Exception as exc:
-        return jsonify({"error": str(exc), "success": False}), 500
+        # Log full details server-side; never expose internals to the client.
+        log.exception("Unexpected error in submit-review: %s", exc)
+        return jsonify({"error": "Internal server error", "success": False}), 500
 
     finally:
         if conn:
