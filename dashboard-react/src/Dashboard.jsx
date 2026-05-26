@@ -25,9 +25,11 @@ import 'react-resizable/css/styles.css'
 // ─────────────────────────────────────────────────────────────────────────────
 //  CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
-const LS_LAYOUT_KEY  = 'oxfordDashboardLayout'
-const LS_CEFR_KEY    = 'oxfordCefrFilter'
-const LS_HIDDEN_KEY  = 'oxfordHiddenCards'
+// Per-user localStorage keys — prefixed with username so each account
+// has its own layout, hidden cards, and CEFR filter.
+const lsLayoutKey = (u) => `oxv:layout:${u}`
+const lsHiddenKey = (u) => `oxv:hidden:${u}`
+const lsCefrKey   = (u) => `oxv:cefr:${u}`
 
 // ── Card display metadata (used in Add/Remove UI) ─────────────────────────────
 const CARD_META = {
@@ -122,32 +124,30 @@ const DEFAULT_LAYOUTS = {
 // ─────────────────────────────────────────────────────────────────────────────
 //  LAYOUT PERSISTENCE HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-function loadLayouts() {
+function loadLayouts(username) {
   try {
-    const raw = localStorage.getItem(LS_LAYOUT_KEY)
+    const raw = localStorage.getItem(lsLayoutKey(username))
     if (raw) return JSON.parse(raw)
   } catch (_) {}
   return DEFAULT_LAYOUTS
 }
 
-function saveLayouts(layouts) {
-  try {
-    localStorage.setItem(LS_LAYOUT_KEY, JSON.stringify(layouts))
-  } catch (_) {}
+function saveLayouts(username, layouts) {
+  if (!username) return
+  try { localStorage.setItem(lsLayoutKey(username), JSON.stringify(layouts)) } catch (_) {}
 }
 
-function loadHidden() {
+function loadHidden(username) {
   try {
-    const raw = localStorage.getItem(LS_HIDDEN_KEY)
+    const raw = localStorage.getItem(lsHiddenKey(username))
     if (raw) return new Set(JSON.parse(raw))
   } catch (_) {}
   return new Set()
 }
 
-function saveHidden(set) {
-  try {
-    localStorage.setItem(LS_HIDDEN_KEY, JSON.stringify([...set]))
-  } catch (_) {}
+function saveHidden(username, set) {
+  if (!username) return
+  try { localStorage.setItem(lsHiddenKey(username), JSON.stringify([...set])) } catch (_) {}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -607,16 +607,16 @@ function ProgressCard({ progress, mastery, total }) {
 //  remaining-words label updates to reflect the chosen level, and when the
 //  button is clicked the /api/new-session endpoint is called with ?level=X.
 // ─────────────────────────────────────────────────────────────────────────────
-function StudyCard({ progress, total, levelCounts, onStartSession, onToast }) {
-  // ── Initialise filter from localStorage (falls back to 'All') ──────────────
+function StudyCard({ progress, total, levelCounts, onStartSession, onToast, username }) {
+  // ── Initialise filter from user-specific localStorage key ──────────────────
   const [cefrFilter, setCefrFilter] = useState(() => {
-    try { return localStorage.getItem(LS_CEFR_KEY) || 'All' } catch { return 'All' }
+    try { return localStorage.getItem(lsCefrKey(username)) || 'All' } catch { return 'All' }
   })
 
   const handleFilterChange = useCallback((level) => {
     setCefrFilter(level)
-    try { localStorage.setItem(LS_CEFR_KEY, level) } catch {}
-  }, [])
+    try { localStorage.setItem(lsCefrKey(username), level) } catch {}
+  }, [username])
 
   // ── Derive remaining words for the active filter ───────────────────────────
   // 'All'  → total words in DB minus what the user has already introduced
@@ -791,6 +791,9 @@ export default function Dashboard({ onStartSession }) {
   const rowH   = width < 640 ? 38 : 44
   const margin = [12, 12]
 
+  // ── Per-user ref — updated once API returns username ─────────────────────
+  const usernameRef = useRef('')
+
   // ── Edit-mode toggle (must click to enable dragging) ──────────────────────
   const [editMode, setEditMode] = useState(false)
 
@@ -810,9 +813,9 @@ export default function Dashboard({ onStartSession }) {
     }
   }, [menuOpen])
 
-  // ── Layout state (persisted to localStorage) ───────────────────────────────
-  const [layouts,     setLayouts]     = useState(loadLayouts)
-  const [hiddenCards, setHiddenCards] = useState(loadHidden)
+  // ── Layout state (initialised with defaults; reloaded per-user in useEffect)
+  const [layouts,     setLayouts]     = useState(DEFAULT_LAYOUTS)
+  const [hiddenCards, setHiddenCards] = useState(() => new Set())
 
   const currentLayout = useMemo(() => {
     const base = width < 640  ? (layouts.sm ?? DEFAULT_LAYOUTS.sm)
@@ -825,17 +828,17 @@ export default function Dashboard({ onStartSession }) {
     setLayouts(prev => {
       const key  = width < 640 ? 'sm' : width < 1024 ? 'md' : 'lg'
       const next = { ...prev, [key]: newLayout }
-      saveLayouts(next)
+      saveLayouts(usernameRef.current, next)
       return next
     })
   }, [width])
 
   const handleReset = useCallback(() => {
     setLayouts(DEFAULT_LAYOUTS)
-    saveLayouts(DEFAULT_LAYOUTS)
+    saveLayouts(usernameRef.current, DEFAULT_LAYOUTS)
     const empty = new Set()
     setHiddenCards(empty)
-    saveHidden(empty)
+    saveHidden(usernameRef.current, empty)
   }, [])
 
   // ── Hide / show card ────────────────────────────────────────────────────────
@@ -843,7 +846,7 @@ export default function Dashboard({ onStartSession }) {
     setHiddenCards(prev => {
       const next = new Set(prev)
       next.add(cardId)
-      saveHidden(next)
+      saveHidden(usernameRef.current, next)
       return next
     })
   }, [])
@@ -852,29 +855,37 @@ export default function Dashboard({ onStartSession }) {
     setHiddenCards(prev => {
       const next = new Set(prev)
       next.delete(cardId)
-      saveHidden(next)
+      saveHidden(usernameRef.current, next)
       return next
     })
-    // Ensure the card exists in all breakpoint layouts (append at bottom if missing)
     setLayouts(prev => {
       const updated = {}
       for (const bp of ['sm', 'md', 'lg']) {
         const bpLayout = prev[bp] ?? DEFAULT_LAYOUTS[bp]
         if (bpLayout.some(item => item.i === cardId)) {
-          updated[bp] = bpLayout          // already in layout, just unhiding
+          updated[bp] = bpLayout
         } else {
           const defItem = DEFAULT_LAYOUTS[bp].find(item => item.i === cardId)
           const maxY    = bpLayout.reduce((m, item) => Math.max(m, item.y + item.h), 0)
           updated[bp]   = [...bpLayout, { ...defItem, y: maxY }]
         }
       }
-      saveLayouts(updated)
+      saveLayouts(usernameRef.current, updated)
       return updated
     })
   }, [])
 
   // ── API data ───────────────────────────────────────────────────────────────
   const { data, loading, error, refetch } = useDashboardStats()
+
+  // ── Load per-user layout/hidden once username is known ─────────────────────
+  useEffect(() => {
+    const u = data?.username
+    if (!u) return
+    usernameRef.current = u
+    setLayouts(loadLayouts(u))
+    setHiddenCards(loadHidden(u))
+  }, [data?.username])
 
   // ── Toast state (rendered outside GridLayout to avoid CSS-transform breakage)
   const [toast, setToast] = useState('')
@@ -1082,7 +1093,7 @@ export default function Dashboard({ onStartSession }) {
                    />,
     'dist-bar':    <DistributionCard levelCounts={levelCounts} total={total} />,
     'progress':    <ProgressCard progress={progress} mastery={mastery} total={total} />,
-    'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} onStartSession={onStartSession} onToast={setToast} />,
+    'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} onStartSession={onStartSession} onToast={setToast} username={username} />,
   }
 
   return (
