@@ -112,7 +112,16 @@ const DEFAULT_LAYOUTS = {
 function loadLayouts(username) {
   try {
     const raw = localStorage.getItem(lsLayoutKey(username))
-    if (raw) return JSON.parse(raw)
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      // Sanitize: each breakpoint must have at least one valid item (with an `i`)
+      const result = {}
+      for (const bp of ['lg', 'md', 'sm']) {
+        const items = (parsed[bp] ?? []).filter(item => item && item.i)
+        result[bp] = items.length > 0 ? items : DEFAULT_LAYOUTS[bp]
+      }
+      return result
+    }
   } catch (_) {}
   return DEFAULT_LAYOUTS
 }
@@ -894,6 +903,8 @@ export default function Dashboard({ onStartSession }) {
   }, [layouts, width, hiddenCards])
 
   const handleLayoutChange = useCallback((newLayout) => {
+    // Never persist an empty layout — happens when all cards are hidden
+    if (!newLayout || newLayout.length === 0) return
     setLayouts(prev => {
       const key  = width < 640 ? 'sm' : width < 1024 ? 'md' : 'lg'
       const next = { ...prev, [key]: newLayout }
@@ -936,7 +947,11 @@ export default function Dashboard({ onStartSession }) {
         } else {
           const defItem = DEFAULT_LAYOUTS[bp].find(item => item.i === cardId)
           const maxY    = bpLayout.reduce((m, item) => Math.max(m, item.y + item.h), 0)
-          updated[bp]   = [...bpLayout, { ...defItem, y: maxY }]
+          // Fallback for cards not in DEFAULT_LAYOUTS (e.g. cefr-A1 … cefr-B2)
+          const newItem = defItem
+            ? { ...defItem, y: maxY }
+            : { i: cardId, x: 0, y: maxY, w: bp === 'sm' ? 4 : 3, h: 3 }
+          updated[bp]   = [...bpLayout, newItem]
         }
       }
       saveLayouts(usernameRef.current, updated)
@@ -1223,8 +1238,8 @@ export default function Dashboard({ onStartSession }) {
         </GridLayout>
       </main>
 
-      {/* ── Add Cards panel — shown in edit mode when cards are hidden ────── */}
-      {editMode && hiddenCards.size > 0 && (
+      {/* ── Add Cards panel — shown whenever cards are hidden ──────────── */}
+      {hiddenCards.size > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-4 animate-slideUp">
           <div className="border-2 border-dashed border-blue-200 rounded-2xl p-4 bg-blue-50/40">
             <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-3 select-none">
