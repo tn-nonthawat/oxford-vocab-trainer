@@ -820,6 +820,39 @@ function StudyCard({ progress, total, levelCounts, onStartSession, onToast, user
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  CONFIRM MODAL  — dangerous-action confirmation dialog
+// ─────────────────────────────────────────────────────────────────────────────
+function ConfirmModal({ title, body, confirmLabel = 'Confirm', onConfirm, onCancel }) {
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center px-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 animate-slideUp">
+        <div className="text-3xl mb-3 select-none text-center">⚠️</div>
+        <h2 className="text-base font-bold text-gray-800 text-center mb-2">{title}</h2>
+        <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">{body}</p>
+        <div className="flex gap-3">
+          <button
+            onClick={onCancel}
+            className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200
+                       text-sm font-semibold text-gray-600 hover:bg-gray-50
+                       transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700
+                       text-sm font-semibold text-white shadow-sm
+                       transition-colors cursor-pointer active:scale-95"
+          >
+            {confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  TOAST  — lightweight auto-dismiss notification (matches Jinja showToast)
 // ─────────────────────────────────────────────────────────────────────────────
 function Toast({ message, onDone, topOffset = 80 }) {
@@ -882,7 +915,8 @@ export default function Dashboard({ onStartSession }) {
   const [editMode, setEditMode] = useState(false)
 
   // ── Navbar dropdown menu ──────────────────────────────────────────────────
-  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuOpen,      setMenuOpen]      = useState(false)
+  const [confirmImport, setConfirmImport] = useState(false)
   const menuRef = useRef(null)
   useEffect(() => {
     if (!menuOpen) return
@@ -1093,14 +1127,14 @@ export default function Dashboard({ onStartSession }) {
               {/* Re-import — only when words exist */}
               {total > 0 && (
                 <button
-                  onClick={() => { setReimporting(true); triggerImport(); setMenuOpen(false) }}
+                  onClick={() => { setMenuOpen(false); setConfirmImport(true) }}
                   disabled={reimporting}
-                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700
-                             hover:bg-gray-50 flex items-center gap-2.5
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-500
+                             hover:bg-red-50 flex items-center gap-2.5
                              transition-colors cursor-pointer
                              disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  <span>↺</span>
+                  <span>⚠️</span>
                   <span>{reimporting ? 'Importing…' : 'Re-import words'}</span>
                 </button>
               )}
@@ -1181,6 +1215,15 @@ export default function Dashboard({ onStartSession }) {
   return (
     <div className="min-h-screen">
       {toast && <Toast message={toast} onDone={() => setToast('')} topOffset={headerH} />}
+      {confirmImport && (
+        <ConfirmModal
+          title="Re-import will erase all progress"
+          body="This deletes every word and all learning progress for every user, then re-parses the PDF from scratch. This cannot be undone."
+          confirmLabel="Yes, re-import"
+          onConfirm={() => { setConfirmImport(false); setReimporting(true); triggerImport() }}
+          onCancel={() => setConfirmImport(false)}
+        />
+      )}
       {ReimportOverlay}
       {Navbar}
 
