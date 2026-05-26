@@ -26,7 +26,9 @@ SM-2 rules
   next_review_date = today + interval days
 """
 
-from datetime import date, timedelta
+from datetime import timedelta
+
+from services.date_service import get_current_date
 
 
 def calculate_next_review(
@@ -76,7 +78,7 @@ def calculate_next_review(
     new_ef = ef + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
     new_ef = max(1.3, round(new_ef, 2))
 
-    next_date = (date.today() + timedelta(days=iv)).strftime("%Y-%m-%d")
+    next_date = (get_current_date() + timedelta(days=iv)).strftime("%Y-%m-%d")
 
     return iv, new_ef, reps, next_date
 
