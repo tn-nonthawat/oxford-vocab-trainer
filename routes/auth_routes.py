@@ -17,7 +17,7 @@ URL prefix     : (none — routes mount at /, /login, /register, /logout)
 import re
 import sqlite3
 
-from flask import Blueprint, redirect, render_template, request, session, url_for
+from flask import Blueprint, current_app, redirect, render_template, request, session, url_for
 
 from database import get_connection
 from extensions import csrf, limiter
@@ -91,12 +91,20 @@ def register():
 
     error = None
     if request.method == "POST":
-        username = request.form.get("username", "").strip()
-        password = request.form.get("password", "")
-        confirm  = request.form.get("confirm",  "")
+        username    = request.form.get("username",    "").strip()
+        password    = request.form.get("password",    "")
+        confirm     = request.form.get("confirm",     "")
+        invite_code = request.form.get("invite_code", "").strip()
+
+        # ── Invite code check ─────────────────────────────────────────────────
+        required_code = current_app.config.get("INVITE_CODE", "")
+        if required_code and invite_code != required_code:
+            error = "Invalid invite code."
 
         # ── Validation ────────────────────────────────────────────────────────
-        if not username:
+        if error:
+            pass  # already set above
+        elif not username:
             error = "Username is required."
         elif len(username) < USERNAME_MIN:
             error = f"Username must be at least {USERNAME_MIN} characters."

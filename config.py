@@ -28,6 +28,11 @@ class BaseConfig:
     # ── External date API ─────────────────────────────────────────────────────
     TIME_API_URL = "https://worldtimeapi.org/api/timezone/Asia/Bangkok"
 
+    # ── Invite code ───────────────────────────────────────────────────────────
+    # Set INVITE_CODE env var in production to require a secret code at signup.
+    # Leave unset (or empty) to allow open registration (e.g. local dev).
+    INVITE_CODE = os.environ.get("INVITE_CODE", "")
+
     # ── Request size limit ────────────────────────────────────────────────────
     MAX_CONTENT_LENGTH = 16 * 1024   # 16 KB — more than enough for any API call
 
