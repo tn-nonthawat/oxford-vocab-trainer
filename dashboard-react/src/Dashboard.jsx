@@ -38,11 +38,8 @@ const CARD_META = {
   'cefr-A2':     { label: 'A2 · Elementary',    icon: '🍀' },
   'cefr-B1':     { label: 'B1 · Intermediate',  icon: '🔵' },
   'cefr-B2':     { label: 'B2 · Upper-Int.',    icon: '🟣' },
-  'stat-intro':  { label: 'Words Introduced',   icon: '🎓' },
-  'stat-due':    { label: 'Due for Review',     icon: '⏰' },
-  'stat-streak': { label: 'Study Streak',       icon: '🔥' },
-  'dist-bar':    { label: 'Level Distribution', icon: '📈' },
-  'progress':    { label: 'Progress Detail',    icon: '📋' },
+  'stats':       { label: 'Stats Overview',      icon: '📊' },
+  'dist-progress': { label: 'Distribution & Progress', icon: '📊' },
   'study':       { label: 'Start Studying',     icon: '🚀' },
 }
 
@@ -81,43 +78,34 @@ const CEFR_META = [
 // ─────────────────────────────────────────────────────────────────────────────
 const DEFAULT_LAYOUTS = {
   lg: [
-    { i: 'hero',        x: 0,  y: 0,  w: 12, h: 3 },
-    { i: 'cefr-A1',     x: 0,  y: 3,  w: 3,  h: 4 },
-    { i: 'cefr-A2',     x: 3,  y: 3,  w: 3,  h: 4 },
-    { i: 'cefr-B1',     x: 6,  y: 3,  w: 3,  h: 4 },
-    { i: 'cefr-B2',     x: 9,  y: 3,  w: 3,  h: 4 },
-    { i: 'stat-intro',  x: 0,  y: 7,  w: 4,  h: 3 },
-    { i: 'stat-due',    x: 4,  y: 7,  w: 4,  h: 3 },
-    { i: 'stat-streak', x: 8,  y: 7,  w: 4,  h: 3 },
-    { i: 'dist-bar',    x: 0,  y: 10, w: 12, h: 3 },
-    { i: 'progress',    x: 0,  y: 13, w: 7,  h: 8 },
-    { i: 'study',       x: 7,  y: 13, w: 5,  h: 8 },
+    { i: 'hero',         x: 0, y: 0,  w: 12, h: 3  },
+    { i: 'cefr-A1',      x: 0, y: 3,  w: 3,  h: 4  },
+    { i: 'cefr-A2',      x: 3, y: 3,  w: 3,  h: 4  },
+    { i: 'cefr-B1',      x: 6, y: 3,  w: 3,  h: 4  },
+    { i: 'cefr-B2',      x: 9, y: 3,  w: 3,  h: 4  },
+    { i: 'stats',        x: 0, y: 7,  w: 3,  h: 8  },
+    { i: 'dist-progress',x: 3, y: 7,  w: 9,  h: 8  },
+    { i: 'study',        x: 0, y: 15, w: 12, h: 7  },
   ],
   md: [
-    { i: 'hero',        x: 0, y: 0,  w: 12, h: 3 },
-    { i: 'cefr-A1',     x: 0, y: 3,  w: 3,  h: 4 },
-    { i: 'cefr-A2',     x: 3, y: 3,  w: 3,  h: 4 },
-    { i: 'cefr-B1',     x: 6, y: 3,  w: 3,  h: 4 },
-    { i: 'cefr-B2',     x: 9, y: 3,  w: 3,  h: 4 },
-    { i: 'stat-intro',  x: 0, y: 7,  w: 4,  h: 3 },
-    { i: 'stat-due',    x: 4, y: 7,  w: 4,  h: 3 },
-    { i: 'stat-streak', x: 8, y: 7,  w: 4,  h: 3 },
-    { i: 'dist-bar',    x: 0, y: 10, w: 12, h: 3 },
-    { i: 'progress',    x: 0, y: 13, w: 12, h: 8 },
-    { i: 'study',       x: 0, y: 21, w: 12, h: 8 },
+    { i: 'hero',         x: 0, y: 0,  w: 12, h: 3  },
+    { i: 'cefr-A1',      x: 0, y: 3,  w: 3,  h: 4  },
+    { i: 'cefr-A2',      x: 3, y: 3,  w: 3,  h: 4  },
+    { i: 'cefr-B1',      x: 6, y: 3,  w: 3,  h: 4  },
+    { i: 'cefr-B2',      x: 9, y: 3,  w: 3,  h: 4  },
+    { i: 'stats',        x: 0, y: 7,  w: 3,  h: 8  },
+    { i: 'dist-progress',x: 3, y: 7,  w: 9,  h: 8  },
+    { i: 'study',        x: 0, y: 15, w: 12, h: 7  },
   ],
   sm: [
-    { i: 'hero',        x: 0, y: 0,  w: 4, h: 3 },
-    { i: 'cefr-A1',     x: 0, y: 3,  w: 2, h: 4 },
-    { i: 'cefr-A2',     x: 2, y: 3,  w: 2, h: 4 },
-    { i: 'cefr-B1',     x: 0, y: 7,  w: 2, h: 4 },
-    { i: 'cefr-B2',     x: 2, y: 7,  w: 2, h: 4 },
-    { i: 'stat-intro',  x: 0, y: 11, w: 4, h: 3 },
-    { i: 'stat-due',    x: 0, y: 14, w: 4, h: 3 },
-    { i: 'stat-streak', x: 0, y: 17, w: 4, h: 3 },
-    { i: 'dist-bar',    x: 0, y: 20, w: 4, h: 4 },
-    { i: 'progress',    x: 0, y: 24, w: 4, h: 8 },
-    { i: 'study',       x: 0, y: 32, w: 4, h: 9 },
+    { i: 'hero',         x: 0, y: 0,  w: 4, h: 3  },
+    { i: 'cefr-A1',      x: 0, y: 3,  w: 2, h: 4  },
+    { i: 'cefr-A2',      x: 2, y: 3,  w: 2, h: 4  },
+    { i: 'cefr-B1',      x: 0, y: 7,  w: 2, h: 4  },
+    { i: 'cefr-B2',      x: 2, y: 7,  w: 2, h: 4  },
+    { i: 'stats',        x: 0, y: 11, w: 4, h: 8  },
+    { i: 'dist-progress',x: 0, y: 19, w: 4, h: 8  },
+    { i: 'study',        x: 0, y: 27, w: 4, h: 9  },
   ],
 }
 
@@ -483,34 +471,49 @@ function CefrCard({ meta, count, total }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  STAT CARD  — single metric (introduced / due / streak)
+//  STATS COMBINED CARD  — introduced / due / streak in one card
 // ─────────────────────────────────────────────────────────────────────────────
-function StatCard({ icon, value, label, valueClass = 'text-gray-800' }) {
+function StatsCard({ progress, streak }) {
+  const items = [
+    { icon: '🎓', value: progress.introduced, label: 'words introduced',    valueClass: 'text-gray-800' },
+    { icon: '⏰', value: progress.due_today,  label: 'due for review today', valueClass: progress.due_today > 0 ? 'text-orange-500' : 'text-gray-800' },
+    { icon: '🔥', value: `${streak} day${streak !== 1 ? 's' : ''}`, label: 'study streak', valueClass: 'text-orange-500' },
+  ]
   return (
     <Card>
-      <div className="flex items-center gap-4 h-full">
-        <span className="text-4xl select-none shrink-0">{icon}</span>
-        <div className="min-w-0">
-          <p className={`text-3xl font-extrabold tabular-nums leading-none ${valueClass}`}>
-            {typeof value === 'number' ? value.toLocaleString() : value}
-          </p>
-          <p className="text-sm text-gray-500 mt-1 truncate">{label}</p>
-        </div>
+      <div className="flex flex-col gap-4 h-full justify-around">
+        {items.map(({ icon, value, label, valueClass }, idx) => (
+          <div key={idx}>
+            {idx > 0 && <hr className="border-gray-100 -mt-2 mb-4" />}
+            <div className="flex items-center gap-4">
+              <span className="text-4xl select-none shrink-0">{icon}</span>
+              <div className="min-w-0">
+                <p className={`text-3xl font-extrabold tabular-nums leading-none ${valueClass}`}>
+                  {typeof value === 'number' ? value.toLocaleString() : value}
+                </p>
+                <p className="text-sm text-gray-500 mt-1 truncate">{label}</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
     </Card>
   )
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  DISTRIBUTION BAR CARD  (matches Jinja: pastel bg segments + plain legend)
+//  DISTRIBUTION + PROGRESS CARD  (combined)
 // ─────────────────────────────────────────────────────────────────────────────
-function DistributionCard({ levelCounts, total }) {
+function DistProgressCard({ levelCounts, total, progress, mastery }) {
+  const introPct = total > 0 ? (progress.introduced / total * 100).toFixed(1) : 0
+
   return (
     <Card>
-      <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 select-none">
+      {/* ── Level Distribution ───────────────────────────────────────────── */}
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 select-none">
         Level Distribution
       </p>
-      <div className="flex rounded-full overflow-hidden h-5 gap-px">
+      <div className="flex rounded-full overflow-hidden h-4 gap-px">
         {CEFR_META.map(({ level, bg }) => {
           const pct = total > 0 ? (levelCounts[level] / total * 100).toFixed(1) : 0
           return (
@@ -523,7 +526,7 @@ function DistributionCard({ levelCounts, total }) {
           )
         })}
       </div>
-      <div className="flex flex-wrap gap-4 mt-3 text-xs text-gray-500">
+      <div className="flex flex-wrap gap-3 mt-2 text-xs text-gray-500">
         {CEFR_META.map(({ level, icon }) => {
           const pct = total > 0 ? (levelCounts[level] / total * 100).toFixed(1) : 0
           return (
@@ -533,66 +536,56 @@ function DistributionCard({ levelCounts, total }) {
           )
         })}
       </div>
-    </Card>
-  )
-}
 
-// ─────────────────────────────────────────────────────────────────────────────
-//  PROGRESS CARD
-// ─────────────────────────────────────────────────────────────────────────────
-function ProgressCard({ progress, mastery, total }) {
-  const introPct = total > 0 ? (progress.introduced / total * 100).toFixed(1) : 0
+      <hr className="border-gray-100 my-3" />
 
-  return (
-    <Card>
-      <p className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-5 select-none">
+      {/* ── Your Progress ────────────────────────────────────────────────── */}
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 select-none">
         📈 Your Progress
       </p>
 
-      {/* Introduction progress bar */}
-      <div className="mb-5">
-        <div className="flex justify-between items-baseline mb-2">
+      <div className="mb-3">
+        <div className="flex justify-between items-baseline mb-1.5">
           <span className="text-sm font-medium text-gray-700">Words Introduced</span>
           <span className="text-sm font-bold text-blue-600 tabular-nums">
             {progress.introduced.toLocaleString()} / {total.toLocaleString()}
           </span>
         </div>
-        <div className="bg-gray-100 rounded-full h-3 overflow-hidden">
+        <div className="bg-gray-100 rounded-full h-2.5 overflow-hidden">
           <div
             className="h-full rounded-full progress-fill bg-gradient-to-r from-blue-500 to-indigo-500"
             style={{ width: `${introPct}%` }}
           />
         </div>
-        <p className="text-xs text-gray-400 mt-1.5">
+        <p className="text-xs text-gray-400 mt-1">
           {introPct}% of Oxford 3000 introduced
         </p>
       </div>
 
-      {/* Memory breakdown */}
-      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3 select-none">
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2 select-none">
         Memory Breakdown
       </p>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
           <p className="text-2xl font-extrabold text-emerald-600 tabular-nums">
             {mastery.mastered.toLocaleString()}
           </p>
-          <p className="text-xs font-bold text-emerald-700 mt-1">Mastered</p>
-          <p className="text-xs text-gray-400 mt-0.5">4+ reviews</p>
+          <p className="text-xs font-bold text-emerald-700 mt-0.5">Mastered</p>
+          <p className="text-xs text-gray-400">4+ reviews</p>
         </div>
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
           <p className="text-2xl font-extrabold text-blue-600 tabular-nums">
             {mastery.learning.toLocaleString()}
           </p>
-          <p className="text-xs font-bold text-blue-700 mt-1">Learning</p>
-          <p className="text-xs text-gray-400 mt-0.5">1–3 reviews</p>
+          <p className="text-xs font-bold text-blue-700 mt-0.5">Learning</p>
+          <p className="text-xs text-gray-400">1–3 reviews</p>
         </div>
-        <div className="bg-red-50 border border-red-100 rounded-xl p-4 text-center">
+        <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
           <p className="text-2xl font-extrabold text-red-500 tabular-nums">
             {mastery.struggling.toLocaleString()}
           </p>
-          <p className="text-xs font-bold text-red-600 mt-1">Struggling</p>
-          <p className="text-xs text-gray-400 mt-0.5">needs work</p>
+          <p className="text-xs font-bold text-red-600 mt-0.5">Struggling</p>
+          <p className="text-xs text-gray-400">needs work</p>
         </div>
       </div>
     </Card>
@@ -682,46 +675,46 @@ function StudyCard({ progress, total, levelCounts, onStartSession, onToast, user
           })}
         </div>
 
-        {/* ── Action buttons ──────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3 flex-1 min-h-0">
+        {/* ── Action buttons — stack on mobile, side-by-side on desktop ────── */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1 min-h-0">
 
-          {/* Learn New Words — matches Jinja: rounded-2xl p-6, text-lg, icon text-5xl */}
+          {/* Learn New Words */}
           <button
             onClick={() => onStartSession({ type: 'new', level: cefrFilter })}
-            className="no-drag group flex items-center gap-5 bg-blue-600 hover:bg-blue-700
-                       active:scale-95 text-white rounded-2xl shadow-lg p-6
-                       transition-all duration-200 cursor-pointer text-left flex-1"
+            className="no-drag group flex items-center gap-4 bg-blue-600 hover:bg-blue-700
+                       active:scale-95 text-white rounded-2xl shadow-lg p-5
+                       transition-all duration-200 cursor-pointer text-left w-full h-full"
           >
-            <span className="text-5xl select-none group-hover:scale-110 transition-transform shrink-0">
+            <span className="text-4xl select-none group-hover:scale-110 transition-transform shrink-0">
               ✨
             </span>
             <div>
-              <p className="text-lg font-bold leading-tight">Learn New Words</p>
-              <p className="text-blue-200 text-sm mt-1">{levelDescription}</p>
-              <p className="text-blue-100 text-xs mt-2 font-medium tabular-nums">
+              <p className="text-base font-bold leading-tight">Learn New Words</p>
+              <p className="text-blue-200 text-sm mt-0.5">{levelDescription}</p>
+              <p className="text-blue-100 text-xs mt-1 font-medium tabular-nums">
                 {remainingLabel}
               </p>
             </div>
           </button>
 
-          {/* Review Words — matches Jinja: rounded-2xl p-6, text-lg, icon text-5xl */}
+          {/* Review Words */}
           <button
             onClick={handleReviewClick}
             className={[
-              'no-drag group flex items-center gap-5 text-white rounded-2xl shadow-lg p-6',
-              'transition-all duration-200 text-left flex-1 cursor-pointer',
+              'no-drag group flex items-center gap-4 text-white rounded-2xl shadow-lg p-5',
+              'transition-all duration-200 text-left w-full h-full cursor-pointer',
               hasDue
                 ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-95'
                 : 'bg-gray-400 hover:bg-gray-500 active:scale-95',
             ].join(' ')}
           >
-            <span className="text-5xl select-none group-hover:scale-110 transition-transform shrink-0">
+            <span className="text-4xl select-none group-hover:scale-110 transition-transform shrink-0">
               🔁
             </span>
             <div>
-              <p className="text-lg font-bold leading-tight">Review Words</p>
-              <p className="text-sm mt-1 opacity-80">Spaced-repetition flashcard session</p>
-              <p className="text-xs mt-2 font-medium opacity-90 tabular-nums">
+              <p className="text-base font-bold leading-tight">Review Words</p>
+              <p className="text-sm mt-0.5 opacity-80">Spaced-repetition flashcard session</p>
+              <p className="text-xs mt-1 font-medium opacity-90 tabular-nums">
                 {hasDue
                   ? `${progress.due_today.toLocaleString()} words due today`
                   : 'Nothing due – great job! 🎉'}
@@ -1078,21 +1071,8 @@ export default function Dashboard({ onStartSession }) {
     'cefr-A2':     <CefrCard meta={CEFR_META[1]} count={levelCounts.A2 ?? 0} total={total} />,
     'cefr-B1':     <CefrCard meta={CEFR_META[2]} count={levelCounts.B1 ?? 0} total={total} />,
     'cefr-B2':     <CefrCard meta={CEFR_META[3]} count={levelCounts.B2 ?? 0} total={total} />,
-    'stat-intro':  <StatCard icon="🎓" value={progress.introduced} label="words introduced" />,
-    'stat-due':    <StatCard
-                     icon="⏰"
-                     value={progress.due_today}
-                     label="due for review today"
-                     valueClass={progress.due_today > 0 ? 'text-orange-500' : 'text-gray-800'}
-                   />,
-    'stat-streak': <StatCard
-                     icon="🔥"
-                     value={`${streak} day${streak !== 1 ? 's' : ''}`}
-                     label="study streak"
-                     valueClass="text-orange-500"
-                   />,
-    'dist-bar':    <DistributionCard levelCounts={levelCounts} total={total} />,
-    'progress':    <ProgressCard progress={progress} mastery={mastery} total={total} />,
+    'stats':       <StatsCard progress={progress} streak={streak} />,
+    'dist-progress': <DistProgressCard levelCounts={levelCounts} total={total} progress={progress} mastery={mastery} />,
     'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} onStartSession={onStartSession} onToast={setToast} username={username} />,
   }
 
