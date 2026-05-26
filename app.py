@@ -98,6 +98,35 @@ def create_app(config_name: str = "default") -> Flask:
     with app.app_context():
         init_db()
 
+    # ── Security headers ──────────────────────────────────────────────────────
+    # Injected on every response so browsers enforce safe defaults.
+    @app.after_request
+    def add_security_headers(response):
+        # Prevent this page from being embedded in an <iframe> (clickjacking)
+        response.headers["X-Frame-Options"] = "DENY"
+        # Stop browsers from guessing content types (MIME sniffing attacks)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        # Tell browsers to always use HTTPS for the next year (production only)
+        if not app.debug:
+            response.headers["Strict-Transport-Security"] = (
+                "max-age=31536000; includeSubDomains"
+            )
+        # Restrict sources for scripts, styles, and other resources (CSP)
+        # 'self'       = same origin only
+        # 'unsafe-inline' = needed for Tailwind/inline styles in the SPA
+        # data:        = needed for inline SVG / font data URIs
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; "
+            "img-src 'self' data:; "
+            "font-src 'self' data:; "
+            "connect-src 'self' https://api.dictionaryapi.dev;"
+        )
+        # Prevent the page from reading referrer headers when navigating away
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        return response
+
     return app
 
 

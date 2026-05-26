@@ -242,6 +242,7 @@ def api_stats():
 
 @session_bp.route("/api/word-meaning/<int:word_id>")
 @login_required
+@limiter.limit("60 per minute")
 def api_word_meaning(word_id: int):
     """
     Return (and persistently cache) the meaning and example sentence for a word.

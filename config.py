@@ -26,7 +26,7 @@ class BaseConfig:
     PDF_PATH = os.path.join(_HERE, "American_Oxford_3000.pdf")
 
     # ── External date API ─────────────────────────────────────────────────────
-    TIME_API_URL = "http://worldtimeapi.org/api/timezone/Asia/Bangkok"
+    TIME_API_URL = "https://worldtimeapi.org/api/timezone/Asia/Bangkok"
 
     # ── Session lifetime ──────────────────────────────────────────────────────
     PERMANENT_SESSION_LIFETIME_DAYS = 30
@@ -37,10 +37,16 @@ class BaseConfig:
 
 class DevelopmentConfig(BaseConfig):
     DEBUG = True
+    SESSION_COOKIE_SECURE   = False   # allow HTTP in local dev
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
 
 
 class ProductionConfig(BaseConfig):
     DEBUG = False
+    SESSION_COOKIE_SECURE   = True    # HTTPS only
+    SESSION_COOKIE_HTTPONLY = True    # JS cannot read the cookie
+    SESSION_COOKIE_SAMESITE = "Lax"  # blocks cross-site POST
 
 
 # Registry consumed by create_app()

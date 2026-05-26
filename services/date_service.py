@@ -23,7 +23,7 @@ _BANGKOK_TZ = ZoneInfo("Asia/Bangkok")
 
 # ── Cache ─────────────────────────────────────────────────────────────────────
 _date_cache: dict = {"value": None, "ts": 0.0}
-_TIME_API_URL = "http://worldtimeapi.org/api/timezone/Asia/Bangkok"
+_TIME_API_URL = "https://worldtimeapi.org/api/timezone/Asia/Bangkok"
 _CACHE_TTL    = 60   # seconds
 
 
