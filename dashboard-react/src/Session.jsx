@@ -60,7 +60,7 @@ async function submitReview(wordId, quality) {
 }
 
 // ── Text-to-Speech ─────────────────────────────────────────────────────────────
-// Voices load asynchronously, so we cache them globally.
+// Voices load asynchronously on mobile — we cache globally and retry if empty.
 let _ttsVoices = []
 if (typeof window !== 'undefined' && window.speechSynthesis) {
   window.speechSynthesis.addEventListener('voiceschanged', () => {
@@ -69,19 +69,57 @@ if (typeof window !== 'undefined' && window.speechSynthesis) {
   _ttsVoices = window.speechSynthesis.getVoices()
 }
 
+function _pickEnglishVoice(voices) {
+  // Prefer US > GB > any English, explicitly excluding non-English voices
+  return (
+    voices.find(v => v.lang === 'en-US') ||
+    voices.find(v => v.lang === 'en-GB') ||
+    voices.find(v => v.lang === 'en-AU') ||
+    voices.find(v => v.lang.startsWith('en'))
+  )
+}
+
+function _doSpeak(word) {
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length) _ttsVoices = voices        // refresh cache
+  const utter   = new SpeechSynthesisUtterance(word)
+  utter.lang    = 'en-US'
+  utter.rate    = 0.85
+  const voice   = _pickEnglishVoice(_ttsVoices)
+  if (voice) utter.voice = voice
+  window.speechSynthesis.speak(utter)
+}
+
 function speakWord(word) {
   if (!window.speechSynthesis || !word) return
   window.speechSynthesis.cancel()
-  const utter = new SpeechSynthesisUtterance(word)
-  utter.lang  = 'en-US'
-  utter.rate  = 0.85
-  if (!_ttsVoices.length) _ttsVoices = window.speechSynthesis.getVoices()
-  const voice =
-    _ttsVoices.find(v => v.lang === 'en-US') ||
-    _ttsVoices.find(v => v.lang === 'en-GB') ||
-    _ttsVoices.find(v => v.lang.startsWith('en'))
-  if (voice) utter.voice = voice
-  window.speechSynthesis.speak(utter)
+
+  // If voices are already loaded, speak immediately
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length) {
+    _ttsVoices = voices
+    _doSpeak(word)
+    return
+  }
+
+  // Voices not ready yet (common on Android) — wait for voiceschanged
+  let fired = false
+  const handler = () => {
+    if (fired) return
+    fired = true
+    window.speechSynthesis.removeEventListener('voiceschanged', handler)
+    _doSpeak(word)
+  }
+  window.speechSynthesis.addEventListener('voiceschanged', handler)
+
+  // Fallback: if voiceschanged never fires (some iOS/desktop), speak after 600ms
+  // lang='en-US' alone is usually enough when no English voice is matched
+  setTimeout(() => {
+    if (fired) return
+    fired = true
+    window.speechSynthesis.removeEventListener('voiceschanged', handler)
+    _doSpeak(word)
+  }, 600)
 }
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
@@ -419,7 +457,7 @@ function ReviewCard({ word: w, onRate }) {
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
           ✏️ Type the word you heard
         </p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 overflow-hidden">
           <input
             ref={inputRef}
             type="text"
@@ -429,7 +467,7 @@ function ReviewCard({ word: w, onRate }) {
             placeholder="Type your answer…"
             autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck="false"
             disabled={checkResult !== null}
-            className="flex-1 border-2 rounded-xl px-4 py-3
+            className="flex-1 min-w-0 border-2 rounded-xl px-4 py-3
                        text-gray-800 text-base font-medium
                        focus:outline-none transition-all"
             style={{

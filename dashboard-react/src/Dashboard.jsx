@@ -708,16 +708,19 @@ function StudyCard({ progress, total, levelCounts, onStartSession, onToast }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  TOAST  — lightweight auto-dismiss notification (matches Jinja showToast)
 // ─────────────────────────────────────────────────────────────────────────────
-function Toast({ message, onDone }) {
+function Toast({ message, onDone, topOffset = 80 }) {
   useEffect(() => {
     const t = setTimeout(onDone, 4500)
     return () => clearTimeout(t)
   }, [onDone])
 
   return (
-    <div className="fixed top-20 left-0 right-0 z-50 flex justify-center pointer-events-none">
+    <div
+      className="fixed left-0 right-0 z-50 flex justify-center pointer-events-none px-4"
+      style={{ top: topOffset + 8 }}
+    >
       <div className="bg-gray-900 text-white text-sm font-medium
-                      px-5 py-3 rounded-xl shadow-xl max-w-sm text-center
+                      px-5 py-3 rounded-xl shadow-xl max-w-sm w-full text-center
                       animate-slideUp select-none">
         {message}
       </div>
@@ -761,6 +764,22 @@ export default function Dashboard({ onStartSession }) {
   // ── Edit-mode toggle (must click to enable dragging) ──────────────────────
   const [editMode, setEditMode] = useState(false)
 
+  // ── Navbar dropdown menu ──────────────────────────────────────────────────
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuRef = useRef(null)
+  useEffect(() => {
+    if (!menuOpen) return
+    function handleOutside(e) {
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handleOutside)
+    document.addEventListener('touchstart', handleOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleOutside)
+      document.removeEventListener('touchstart', handleOutside)
+    }
+  }, [menuOpen])
+
   // ── Layout state (persisted to localStorage) ───────────────────────────────
   const [layouts, setLayouts] = useState(loadLayouts)
 
@@ -790,6 +809,17 @@ export default function Dashboard({ onStartSession }) {
   // ── Toast state (rendered outside GridLayout to avoid CSS-transform breakage)
   const [toast, setToast] = useState('')
 
+  // ── Header height — measured dynamically so Toast always clears the navbar
+  const [headerH, setHeaderH] = useState(80)
+  useEffect(() => {
+    const el = document.getElementById('main-navbar')
+    if (!el) return
+    setHeaderH(el.offsetHeight)
+    const obs = new ResizeObserver(() => setHeaderH(el.offsetHeight))
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
   // ── Import state (only active when DB is empty or re-import triggered) ──────
   const needsImport      = !loading && !error && data?.total === 0
   const [reimporting, setReimporting] = useState(false)
@@ -810,7 +840,7 @@ export default function Dashboard({ onStartSession }) {
 
   // ── Shared navbar ──────────────────────────────────────────────────────────
   const Navbar = (
-    <header className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
+    <header id="main-navbar" className="bg-white shadow-sm sticky top-0 z-50 border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 select-none">
           <span className="text-3xl">📚</span>
@@ -824,50 +854,101 @@ export default function Dashboard({ onStartSession }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* ↺ Re-import button — only shown when data exists */}
-          {total > 0 && (
-            <button
-              onClick={() => { setReimporting(true); triggerImport() }}
-              disabled={reimporting}
-              className="no-drag text-xs text-gray-400 hover:text-blue-600
-                         underline underline-offset-2 transition-colors
-                         cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Re-parse the PDF and refresh word list"
-            >
-              ↺ Re-import
-            </button>
-          )}
-
-          {/* ✏️ Edit Layout / ✓ Done toggle */}
-          {editMode && <ResetButton onReset={handleReset} />}
+        {/* ── Single menu button → dropdown ───────────────────────────────── */}
+        <div className="relative" ref={menuRef}>
           <button
-            onClick={() => setEditMode(e => !e)}
+            onClick={() => setMenuOpen(o => !o)}
             className={[
-              'no-drag flex items-center gap-1.5 text-xs font-semibold',
-              'px-3 py-1.5 rounded-full transition-all duration-150 cursor-pointer shadow-sm select-none',
-              editMode
-                ? 'bg-blue-600 text-white border border-blue-500 hover:bg-blue-700'
-                : 'bg-white text-gray-500 border border-gray-200 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50',
+              'no-drag flex items-center gap-2 text-xs font-semibold',
+              'px-3 py-2 rounded-full border transition-all duration-150 cursor-pointer select-none shadow-sm',
+              menuOpen || editMode
+                ? 'bg-blue-600 text-white border-blue-500 hover:bg-blue-700'
+                : 'bg-white text-gray-600 border-gray-200 hover:text-blue-600 hover:border-blue-200 hover:bg-blue-50',
             ].join(' ')}
-            title={editMode ? 'Exit layout editing' : 'Enter layout editing mode'}
+            title="Menu"
           >
-            {editMode ? '✓ Done' : '✏️ Edit Layout'}
-          </button>
-          <div className="flex items-center gap-2 pl-3 border-l border-gray-200">
-            <span className="hidden sm:flex items-center gap-1.5 text-xs font-medium
-                             text-gray-500 bg-gray-100 px-3 py-1.5 rounded-full select-none">
-              <span>👤</span>
-              <span>{username}</span>
-            </span>
-            <button
-              onClick={() => { window.location.href = '/logout' }}
-              className="no-drag text-xs font-semibold text-gray-400 hover:text-red-500
-                         transition-colors cursor-pointer select-none"
+            {/* Person icon */}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="8" r="4"/>
+              <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+            </svg>
+            <span className="hidden sm:inline max-w-[90px] truncate">{username}</span>
+            {/* Caret */}
+            <svg
+              width="10" height="10" viewBox="0 0 10 10" fill="currentColor"
+              className={`transition-transform duration-200 ${menuOpen ? 'rotate-180' : ''}`}
             >
-              Logout
-            </button>
-          </div>
+              <path d="M1 3l4 4 4-4"/>
+            </svg>
+          </button>
+
+          {/* Dropdown panel */}
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-2 bg-white rounded-2xl shadow-xl
+                            border border-gray-100 py-1.5 min-w-[200px] z-[60]
+                            animate-slideUp origin-top-right">
+
+              {/* Username header */}
+              <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-2">
+                <span className="text-base">👤</span>
+                <span className="text-sm font-semibold text-gray-700 truncate">{username}</span>
+              </div>
+
+              {/* Edit Layout / Done */}
+              <button
+                onClick={() => { setEditMode(e => !e); setMenuOpen(false) }}
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700
+                           hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5
+                           transition-colors cursor-pointer"
+              >
+                <span>{editMode ? '✓' : '✏️'}</span>
+                <span>{editMode ? 'Done editing' : 'Edit Layout'}</span>
+              </button>
+
+              {/* Reset Layout — only in edit mode */}
+              {editMode && (
+                <button
+                  onClick={() => { handleReset(); setMenuOpen(false) }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-orange-500
+                             hover:bg-orange-50 flex items-center gap-2.5
+                             transition-colors cursor-pointer"
+                >
+                  <span>↺</span>
+                  <span>Reset Layout</span>
+                </button>
+              )}
+
+              {/* Re-import — only when words exist */}
+              {total > 0 && (
+                <button
+                  onClick={() => { setReimporting(true); triggerImport(); setMenuOpen(false) }}
+                  disabled={reimporting}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700
+                             hover:bg-gray-50 flex items-center gap-2.5
+                             transition-colors cursor-pointer
+                             disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <span>↺</span>
+                  <span>{reimporting ? 'Importing…' : 'Re-import words'}</span>
+                </button>
+              )}
+
+              {/* Logout */}
+              <div className="border-t border-gray-100 mt-1 pt-1">
+                <button
+                  onClick={() => { window.location.href = '/logout' }}
+                  className="w-full text-left px-4 py-2.5 text-sm text-red-500
+                             hover:bg-red-50 flex items-center gap-2.5
+                             transition-colors cursor-pointer"
+                >
+                  <span>🚪</span>
+                  <span>Logout</span>
+                </button>
+              </div>
+
+            </div>
+          )}
         </div>
       </div>
     </header>
@@ -936,7 +1017,7 @@ export default function Dashboard({ onStartSession }) {
 
   return (
     <div className="min-h-screen">
-      {toast && <Toast message={toast} onDone={() => setToast('')} />}
+      {toast && <Toast message={toast} onDone={() => setToast('')} topOffset={headerH} />}
       {ReimportOverlay}
       {Navbar}
 
