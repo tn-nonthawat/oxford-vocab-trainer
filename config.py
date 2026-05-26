@@ -28,6 +28,9 @@ class BaseConfig:
     # ── External date API ─────────────────────────────────────────────────────
     TIME_API_URL = "https://worldtimeapi.org/api/timezone/Asia/Bangkok"
 
+    # ── Request size limit ────────────────────────────────────────────────────
+    MAX_CONTENT_LENGTH = 16 * 1024   # 16 KB — more than enough for any API call
+
     # ── Session lifetime ──────────────────────────────────────────────────────
     PERMANENT_SESSION_LIFETIME_DAYS = 30
 
