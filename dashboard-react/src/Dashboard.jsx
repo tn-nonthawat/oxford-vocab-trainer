@@ -915,8 +915,7 @@ export default function Dashboard({ onStartSession }) {
   const [editMode, setEditMode] = useState(false)
 
   // ── Navbar dropdown menu ──────────────────────────────────────────────────
-  const [menuOpen,      setMenuOpen]      = useState(false)
-  const [confirmImport, setConfirmImport] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
   useEffect(() => {
     if (!menuOpen) return
@@ -1025,17 +1024,12 @@ export default function Dashboard({ onStartSession }) {
     return () => obs.disconnect()
   }, [])
 
-  // ── Import state (only active when DB is empty or re-import triggered) ──────
-  const needsImport      = !loading && !error && data?.total === 0
-  const [reimporting, setReimporting] = useState(false)
-  const importEnabled    = needsImport || reimporting
+  // ── Import state (only active when DB is empty) ───────────────────────────
+  const needsImport = !loading && !error && data?.total === 0
 
   const { importState, triggerImport } = useImportState({
-    enabled: importEnabled,
-    onDone : useCallback(() => {
-      setReimporting(false)
-      refetch()             // re-fetch /api/stats after import completes
-    }, [refetch]),
+    enabled: needsImport,
+    onDone : useCallback(() => { refetch() }, [refetch]),
   })
 
   if (loading) return <LoadingScreen />
@@ -1124,21 +1118,6 @@ export default function Dashboard({ onStartSession }) {
                 </button>
               )}
 
-              {/* Re-import — only when words exist */}
-              {total > 0 && (
-                <button
-                  onClick={() => { setMenuOpen(false); setConfirmImport(true) }}
-                  disabled={reimporting}
-                  className="w-full text-left px-4 py-2.5 text-sm text-red-500
-                             hover:bg-red-50 flex items-center gap-2.5
-                             transition-colors cursor-pointer
-                             disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <span>⚠️</span>
-                  <span>{reimporting ? 'Importing…' : 'Re-import words'}</span>
-                </button>
-              )}
-
               {/* Logout */}
               <div className="border-t border-gray-100 mt-1 pt-1">
                 <button
@@ -1169,32 +1148,6 @@ export default function Dashboard({ onStartSession }) {
     )
   }
 
-  // ── Re-import progress overlay ─────────────────────────────────────────────
-  // (shown as a modal over the dashboard while re-import is running)
-  const ReimportOverlay = reimporting && importState && (
-    <div className="fixed inset-0 z-40 flex items-center justify-center
-                    bg-black/30 backdrop-blur-sm">
-      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4">
-        <div className="flex items-center gap-3 mb-5">
-          <svg className="animate-spin h-6 w-6 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24">
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-          </svg>
-          <h2 className="text-base font-bold">Re-importing vocabulary…</h2>
-        </div>
-        <div className="bg-gray-100 rounded-full h-3 overflow-hidden mb-2">
-          <div className="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-700"
-               style={{ width: importState.total_pages > 0
-                 ? `${Math.round(importState.pages_done / importState.total_pages * 100)}%`
-                 : '5%' }} />
-        </div>
-        <p className="text-xs text-gray-500 text-center">
-          {importState.message || '…'}
-        </p>
-      </div>
-    </div>
-  )
-
   // ── Card registry ──────────────────────────────────────────────────────────
   const cardMap = {
     'hero':        <HeroCard total={total} />,
@@ -1215,16 +1168,6 @@ export default function Dashboard({ onStartSession }) {
   return (
     <div className="min-h-screen">
       {toast && <Toast message={toast} onDone={() => setToast('')} topOffset={headerH} />}
-      {confirmImport && (
-        <ConfirmModal
-          title="Re-import will erase all progress"
-          body="This deletes every word and all learning progress for every user, then re-parses the PDF from scratch. This cannot be undone."
-          confirmLabel="Yes, re-import"
-          onConfirm={() => { setConfirmImport(false); setReimporting(true); triggerImport() }}
-          onCancel={() => setConfirmImport(false)}
-        />
-      )}
-      {ReimportOverlay}
       {Navbar}
 
       {/* ── Banner: edit-mode active ──────────────────────────────────────── */}

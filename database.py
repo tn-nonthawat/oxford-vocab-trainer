@@ -205,8 +205,71 @@ def _migrate() -> None:
         cur.execute("ALTER TABLE user_stats_v2 RENAME TO user_stats")
         print("[database] Migration: user_stats table upgraded.")
 
+    # ── 4. words: insert number words + articles that old parser missed ─────────
+    # Original import predates support for pos="number" / "indefinite article" /
+    # "definite article", so these Oxford-3000 entries were never written to DB.
+    # This migration is idempotent: INSERT OR IGNORE is a no-op if the row exists.
+    _migrate_missing_words(cur)
+
     conn.commit()
     conn.close()
+
+
+_MISSING_WORDS = [
+    # Articles
+    ("a",           "indefinite article", "A1"),
+    ("an",          "indefinite article", "A1"),
+    ("the",         "definite article",   "A1"),
+    # Cardinal numbers  A1
+    ("one",         "number", "A1"), ("two",       "number", "A1"),
+    ("three",       "number", "A1"), ("four",      "number", "A1"),
+    ("five",        "number", "A1"), ("six",       "number", "A1"),
+    ("seven",       "number", "A1"), ("eight",     "number", "A1"),
+    ("nine",        "number", "A1"), ("ten",       "number", "A1"),
+    ("eleven",      "number", "A1"), ("twelve",    "number", "A1"),
+    ("thirteen",    "number", "A1"), ("fourteen",  "number", "A1"),
+    ("fifteen",     "number", "A1"), ("sixteen",   "number", "A1"),
+    ("seventeen",   "number", "A1"), ("eighteen",  "number", "A1"),
+    ("nineteen",    "number", "A1"), ("twenty",    "number", "A1"),
+    ("thirty",      "number", "A1"), ("forty",     "number", "A1"),
+    ("fifty",       "number", "A1"), ("sixty",     "number", "A1"),
+    ("seventy",     "number", "A1"), ("eighty",    "number", "A1"),
+    ("ninety",      "number", "A1"), ("hundred",   "number", "A1"),
+    ("thousand",    "number", "A1"), ("million",   "number", "A1"),
+    # Ordinals  A1
+    ("third",       "number", "A1"), ("fourth",    "number", "A1"),
+    ("fifth",       "number", "A1"),
+    # A2
+    ("billion",     "number", "A2"), ("zero",      "number", "A2"),
+    # Parser fixes (multi-entry per CEFR / cross-line / pron. min-len)
+    ("i",           "pron.",  "A1"),
+    ("map",         "n.",     "A1"), ("map",       "v.",     "B2"),
+    ("match",       "n.",     "A1"), ("match",     "v.",     "A1"),
+    ("personally",  "adv.",   "B1"),
+    ("shoot",       "v.",     "B1"),
+]
+
+
+def _migrate_missing_words(cur) -> None:
+    """Insert number words / articles that the original importer missed.
+    Idempotent: checks existence before inserting (words table has no UNIQUE key).
+    """
+    # Remove the old bad-parse artifact: 'one' stored as det. A1
+    cur.execute("DELETE FROM words WHERE word='one' AND pos='det.'")
+
+    # Build a set of (word, pos) already in DB to avoid inserting duplicates
+    cur.execute("SELECT word, pos FROM words")
+    existing = {(r[0], r[1]) for r in cur.fetchall()}
+
+    to_add = [(w, p, c) for w, p, c in _MISSING_WORDS if (w, p) not in existing]
+    if to_add:
+        cur.executemany(
+            "INSERT INTO words (word, pos, cefr_level) VALUES (?, ?, ?)",
+            to_add,
+        )
+        print(f"[database] Migration: inserted {len(to_add)} missing number/article words.")
+    else:
+        print("[database] Migration: number/article words already present, skipped.")
 
 
 if __name__ == "__main__":

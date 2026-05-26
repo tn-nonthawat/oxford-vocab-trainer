@@ -36,7 +36,7 @@ POS_TAGS = [
     "definite article",                                 # the
     "exclam.", "modal", "suffix", "prefix", "abbr.",
     "prep.", "conj.", "pron.", "det.", "adj.", "adv.",
-    "number", "num.", "n.", "v.",
+    "number", "num.", "noun.", "n.", "v.",              # noun. appears alongside n. in some entries
 ]
 _pos_alt = "|".join(re.escape(t) for t in POS_TAGS)
 POS_RE   = re.compile(rf"(?<![A-Za-z])({_pos_alt})(?![a-z])")
@@ -81,32 +81,39 @@ def _build_lines(page, y_tolerance: float = 3.0) -> list[str]:
 def _triples_from_line(line: str):
     prev_end = 0
     for cefr_m in CEFR_RE.finditer(line):
-        cefr     = cefr_m.group(1)
-        segment  = line[prev_end: cefr_m.start()].replace("/", " ")
-        prev_end = cefr_m.end()
+        cefr        = cefr_m.group(1)
+        segment     = line[prev_end: cefr_m.start()].replace("/", " ")
+        prev_end    = cefr_m.end()
         pos_matches = list(POS_RE.finditer(segment))
         if not pos_matches:
             continue
-        first_pos = pos_matches[0]
-        pos       = first_pos.group(1)
-        raw       = segment[: first_pos.start()]
-        raw       = re.sub(r"\([^)]*\)", " ", raw)
-        raw       = re.sub(r"[^A-Za-z\s\-]", " ", raw)
-        # Allow single-letter words (e.g. "a", "the") for article POS tags.
-        _article = pos in ("indefinite article", "definite article")
-        min_len  = 1 if _article else 2
-        tokens   = [
-            t for t in raw.split()
-            if re.fullmatch(r"[a-z][a-z\-]*", t, re.IGNORECASE) and len(t) >= min_len
-        ]
-        if not tokens:
-            continue
-        if _article:
-            # "a, an" / "the" → emit each headword as its own row.
-            for t in tokens:
-                yield t.lower(), pos, cefr
-        else:
-            yield " ".join(tokens[-3:]).strip().lower(), pos, cefr
+
+        # ── Iterate ALL POS matches in the segment (not just the first).
+        # The PDF often packs multiple entries before a single CEFR tag, e.g.:
+        #   "light (from the sun) n., map n. A1"  →  light n. A1 AND map n. A1
+        for idx, pos_m in enumerate(pos_matches):
+            pos = pos_m.group(1)
+            # Text before this POS match, after the previous POS match (or start)
+            seg_start = pos_matches[idx - 1].end() if idx > 0 else 0
+            raw = segment[seg_start: pos_m.start()]
+            raw = re.sub(r"\([^)]*\)", " ", raw)
+            raw = re.sub(r"[^A-Za-z\s\-]", " ", raw)
+
+            _article = pos in ("indefinite article", "definite article")
+            # Allow single-letter words (pron. "I", articles "a"/"the")
+            _pron    = pos == "pron."
+            min_len  = 1 if (_article or _pron) else 2
+            tokens   = [
+                t for t in raw.split()
+                if re.fullmatch(r"[a-z][a-z\-]*", t, re.IGNORECASE) and len(t) >= min_len
+            ]
+            if not tokens:
+                continue
+            if _article:
+                for t in tokens:
+                    yield t.lower(), pos, cefr
+            else:
+                yield " ".join(tokens[-3:]).strip().lower(), pos, cefr
 
 
 # ── Import worker ─────────────────────────────────────────────────────────────
