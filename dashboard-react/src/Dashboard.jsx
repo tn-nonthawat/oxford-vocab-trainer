@@ -101,8 +101,8 @@ const DEFAULT_LAYOUTS = {
     { i: 'stat-intro',   x: 0, y: 3,  w: 4, h: 3  },
     { i: 'stat-due',     x: 0, y: 6,  w: 4, h: 3  },
     { i: 'stat-streak',  x: 0, y: 9,  w: 4, h: 3  },
-    { i: 'dist-progress',x: 0, y: 12, w: 4, h: 8  },
-    { i: 'study',        x: 0, y: 20, w: 4, h: 9  },
+    { i: 'dist-progress',x: 0, y: 12, w: 4, h: 11 },
+    { i: 'study',        x: 0, y: 23, w: 4, h: 9  },
   ],
 }
 
@@ -114,11 +114,17 @@ function loadLayouts(username) {
     const raw = localStorage.getItem(lsLayoutKey(username))
     if (raw) {
       const parsed = JSON.parse(raw)
-      // Sanitize: each breakpoint must have at least one valid item (with an `i`)
+      // Sanitize + auto-migrate
       const result = {}
       for (const bp of ['lg', 'md', 'sm']) {
         const items = (parsed[bp] ?? []).filter(item => item && item.i)
-        result[bp] = items.length > 0 ? items : DEFAULT_LAYOUTS[bp]
+        if (items.length === 0) { result[bp] = DEFAULT_LAYOUTS[bp]; continue }
+        result[bp] = items.map(item => {
+          // Migrate dist-progress height on mobile (added Mastery Rate + Words Left)
+          if (item.i === 'dist-progress' && bp === 'sm' && item.h < 11)
+            return { ...item, h: 11 }
+          return item
+        })
       }
       return result
     }
