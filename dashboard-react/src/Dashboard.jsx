@@ -25,8 +25,24 @@ import 'react-resizable/css/styles.css'
 // ─────────────────────────────────────────────────────────────────────────────
 //  CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
-const LS_LAYOUT_KEY = 'oxfordDashboardLayout'
-const LS_CEFR_KEY   = 'oxfordCefrFilter'
+const LS_LAYOUT_KEY  = 'oxfordDashboardLayout'
+const LS_CEFR_KEY    = 'oxfordCefrFilter'
+const LS_HIDDEN_KEY  = 'oxfordHiddenCards'
+
+// ── Card display metadata (used in Add/Remove UI) ─────────────────────────────
+const CARD_META = {
+  'hero':        { label: 'Total Words',        icon: '📊' },
+  'cefr-A1':     { label: 'A1 · Beginner',      icon: '🌱' },
+  'cefr-A2':     { label: 'A2 · Elementary',    icon: '🍀' },
+  'cefr-B1':     { label: 'B1 · Intermediate',  icon: '🔵' },
+  'cefr-B2':     { label: 'B2 · Upper-Int.',    icon: '🟣' },
+  'stat-intro':  { label: 'Words Introduced',   icon: '🎓' },
+  'stat-due':    { label: 'Due for Review',     icon: '⏰' },
+  'stat-streak': { label: 'Study Streak',       icon: '🔥' },
+  'dist-bar':    { label: 'Level Distribution', icon: '📈' },
+  'progress':    { label: 'Progress Detail',    icon: '📋' },
+  'study':       { label: 'Start Studying',     icon: '🚀' },
+}
 
 const CEFR_FILTERS = ['All', 'A1', 'A2', 'B1', 'B2']
 
@@ -117,6 +133,20 @@ function loadLayouts() {
 function saveLayouts(layouts) {
   try {
     localStorage.setItem(LS_LAYOUT_KEY, JSON.stringify(layouts))
+  } catch (_) {}
+}
+
+function loadHidden() {
+  try {
+    const raw = localStorage.getItem(LS_HIDDEN_KEY)
+    if (raw) return new Set(JSON.parse(raw))
+  } catch (_) {}
+  return new Set()
+}
+
+function saveHidden(set) {
+  try {
+    localStorage.setItem(LS_HIDDEN_KEY, JSON.stringify([...set]))
   } catch (_) {}
 }
 
@@ -781,13 +811,15 @@ export default function Dashboard({ onStartSession }) {
   }, [menuOpen])
 
   // ── Layout state (persisted to localStorage) ───────────────────────────────
-  const [layouts, setLayouts] = useState(loadLayouts)
+  const [layouts,     setLayouts]     = useState(loadLayouts)
+  const [hiddenCards, setHiddenCards] = useState(loadHidden)
 
   const currentLayout = useMemo(() => {
-    if (width < 640)  return layouts.sm ?? DEFAULT_LAYOUTS.sm
-    if (width < 1024) return layouts.md ?? DEFAULT_LAYOUTS.md
-    return layouts.lg ?? DEFAULT_LAYOUTS.lg
-  }, [layouts, width])
+    const base = width < 640  ? (layouts.sm ?? DEFAULT_LAYOUTS.sm)
+               : width < 1024 ? (layouts.md ?? DEFAULT_LAYOUTS.md)
+               :                 (layouts.lg ?? DEFAULT_LAYOUTS.lg)
+    return base.filter(item => !hiddenCards.has(item.i))
+  }, [layouts, width, hiddenCards])
 
   const handleLayoutChange = useCallback((newLayout) => {
     setLayouts(prev => {
@@ -801,6 +833,44 @@ export default function Dashboard({ onStartSession }) {
   const handleReset = useCallback(() => {
     setLayouts(DEFAULT_LAYOUTS)
     saveLayouts(DEFAULT_LAYOUTS)
+    const empty = new Set()
+    setHiddenCards(empty)
+    saveHidden(empty)
+  }, [])
+
+  // ── Hide / show card ────────────────────────────────────────────────────────
+  const handleHideCard = useCallback((cardId) => {
+    setHiddenCards(prev => {
+      const next = new Set(prev)
+      next.add(cardId)
+      saveHidden(next)
+      return next
+    })
+  }, [])
+
+  const handleShowCard = useCallback((cardId) => {
+    setHiddenCards(prev => {
+      const next = new Set(prev)
+      next.delete(cardId)
+      saveHidden(next)
+      return next
+    })
+    // Ensure the card exists in all breakpoint layouts (append at bottom if missing)
+    setLayouts(prev => {
+      const updated = {}
+      for (const bp of ['sm', 'md', 'lg']) {
+        const bpLayout = prev[bp] ?? DEFAULT_LAYOUTS[bp]
+        if (bpLayout.some(item => item.i === cardId)) {
+          updated[bp] = bpLayout          // already in layout, just unhiding
+        } else {
+          const defItem = DEFAULT_LAYOUTS[bp].find(item => item.i === cardId)
+          const maxY    = bpLayout.reduce((m, item) => Math.max(m, item.y + item.h), 0)
+          updated[bp]   = [...bpLayout, { ...defItem, y: maxY }]
+        }
+      }
+      saveLayouts(updated)
+      return updated
+    })
   }, [])
 
   // ── API data ───────────────────────────────────────────────────────────────
@@ -1036,18 +1106,12 @@ export default function Dashboard({ onStartSession }) {
               <circle cx="11" cy="12" r="1.4"/>
             </svg>
             <span>
-              Drag any card to rearrange — click{' '}
+              Drag to rearrange · hover a card and tap <strong>✕</strong> to remove — click{' '}
               <strong>✓ Done</strong> when finished
             </span>
           </div>
         </div>
-      ) : (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4 pb-1">
-          <p className="text-xs text-gray-400 select-none">
-            Click <strong className="text-gray-500">✏️ Edit Layout</strong> to rearrange cards
-          </p>
-        </div>
-      )}
+      ) : null}
 
       {/* ── Draggable grid ───────────────────────────────────────────────── */}
       <main className={`max-w-7xl mx-auto px-4 sm:px-6 pb-10 ${editMode ? 'edit-mode' : ''}`}>
@@ -1066,12 +1130,55 @@ export default function Dashboard({ onStartSession }) {
           useCSSTransforms
         >
           {currentLayout.map(({ i }) => (
-            <div key={i}>
+            <div key={i} className="relative group/card">
+              {/* ✕ Remove button — only in edit mode */}
+              {editMode && (
+                <button
+                  onClick={() => handleHideCard(i)}
+                  className="no-drag absolute top-2 right-2 z-20
+                             w-6 h-6 bg-red-500 hover:bg-red-600
+                             text-white text-sm font-bold rounded-full
+                             flex items-center justify-center
+                             shadow-lg transition-all duration-150 cursor-pointer
+                             opacity-0 group-hover/card:opacity-100"
+                  title={`Remove "${CARD_META[i]?.label ?? i}"`}
+                >
+                  ✕
+                </button>
+              )}
               {cardMap[i] ?? null}
             </div>
           ))}
         </GridLayout>
       </main>
+
+      {/* ── Add Cards panel — shown in edit mode when cards are hidden ────── */}
+      {editMode && hiddenCards.size > 0 && (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-4 animate-slideUp">
+          <div className="border-2 border-dashed border-blue-200 rounded-2xl p-4 bg-blue-50/40">
+            <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-3 select-none">
+              ＋ Add cards back
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {[...hiddenCards].map(cardId => (
+                <button
+                  key={cardId}
+                  onClick={() => handleShowCard(cardId)}
+                  className="no-drag flex items-center gap-1.5
+                             bg-white border border-gray-200 hover:border-blue-400
+                             hover:bg-blue-50 text-sm text-gray-700
+                             px-3 py-2 rounded-xl shadow-sm
+                             transition-all duration-150 cursor-pointer select-none"
+                >
+                  <span>{CARD_META[cardId]?.icon ?? '📄'}</span>
+                  <span>{CARD_META[cardId]?.label ?? cardId}</span>
+                  <span className="text-blue-500 font-bold ml-0.5 text-base leading-none">＋</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Footer ───────────────────────────────────────────────────────── */}
       <footer className="text-center text-xs text-gray-400 pb-6 select-none">
