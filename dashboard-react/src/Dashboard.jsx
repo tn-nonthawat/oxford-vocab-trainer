@@ -1136,11 +1136,10 @@ export default function Dashboard({ onStartSession }) {
                 <button
                   onClick={() => handleHideCard(i)}
                   className="no-drag absolute top-2 right-2 z-20
-                             w-6 h-6 bg-red-500 hover:bg-red-600
+                             w-7 h-7 bg-red-500 hover:bg-red-600 active:scale-90
                              text-white text-sm font-bold rounded-full
                              flex items-center justify-center
-                             shadow-lg transition-all duration-150 cursor-pointer
-                             opacity-0 group-hover/card:opacity-100"
+                             shadow-lg transition-all duration-150 cursor-pointer"
                   title={`Remove "${CARD_META[i]?.label ?? i}"`}
                 >
                   ✕
