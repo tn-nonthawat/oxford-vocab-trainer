@@ -117,11 +117,11 @@ def create_app(config_name: str = "default") -> Flask:
         # data:        = needed for inline SVG / font data URIs
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline'; "
+            "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data:; "
             "font-src 'self' data:; "
-            "connect-src 'self' https://api.dictionaryapi.dev;"
+            "connect-src 'self' https://cdn.tailwindcss.com https://api.dictionaryapi.dev;"
         )
         # Prevent the page from reading referrer headers when navigating away
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
