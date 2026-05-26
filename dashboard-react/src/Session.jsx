@@ -122,6 +122,42 @@ function speakWord(word) {
   }, 600)
 }
 
+// ── Thai Note ─────────────────────────────────────────────────────────────────
+function ThaiNote({ wordId }) {
+  const key = `thai_note_${wordId}`
+  const [note, setNote] = useState(() => localStorage.getItem(key) || '')
+
+  const MAX = 120
+
+  function handleChange(e) {
+    const val = e.target.value.slice(0, MAX)
+    setNote(val)
+    localStorage.setItem(key, val)
+  }
+
+  return (
+    <div className="mt-4 rounded-xl border-2 border-yellow-200 bg-yellow-50 px-4 py-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <p className="text-xs font-semibold uppercase tracking-wider text-yellow-600">
+          📝 โน็ตคำแปล
+        </p>
+        <span className={`text-xs font-mono ${note.length >= MAX ? 'text-red-400' : 'text-yellow-400'}`}>
+          {note.length}/{MAX}
+        </span>
+      </div>
+      <textarea
+        value={note}
+        onChange={handleChange}
+        placeholder=""
+        rows={2}
+        maxLength={MAX}
+        className="w-full bg-transparent text-sm text-gray-700 placeholder-yellow-300
+                   focus:outline-none resize-none leading-relaxed"
+      />
+    </div>
+  )
+}
+
 // ── Spinner ───────────────────────────────────────────────────────────────────
 function Spinner({ text = 'Loading…' }) {
   return (
@@ -292,19 +328,12 @@ function NewWordCard({ word: w, onRate }) {
             </div>
             <hr className="border-gray-100 mb-4" />
             <div className="mb-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
-                📖 Meaning
-              </p>
               <p className="text-gray-800 text-base leading-relaxed">{meaning}</p>
             </div>
             {example && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
-                  💬 Example
-                </p>
-                <p className="text-gray-500 text-sm italic leading-relaxed">"{example}"</p>
-              </div>
+              <p className="text-gray-500 text-sm italic leading-relaxed">"{example}"</p>
             )}
+            <ThaiNote wordId={w.id} />
             <p className="text-center text-xs text-gray-300 mt-auto pt-4">
               — Rate your recall below —
             </p>
@@ -433,19 +462,11 @@ function ReviewCard({ word: w, onRate }) {
         <Spinner text="Loading definition cue…" />
       ) : (
         <div className="mb-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
-            📖 Meaning
-          </p>
           <p className="text-gray-800 text-base leading-relaxed mb-3">{meaning || '—'}</p>
           {example && (
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1.5">
-                💬 Example
-              </p>
-              <p className="text-gray-500 text-sm italic leading-relaxed">
-                "{maskedExample}"
-              </p>
-            </div>
+            <p className="text-gray-500 text-sm italic leading-relaxed">
+              "{maskedExample}"
+            </p>
           )}
         </div>
       )}
@@ -520,6 +541,9 @@ function ReviewCard({ word: w, onRate }) {
             )}
           </div>
         )}
+
+        {/* Thai note — shown after answer is checked */}
+        {checkResult && <ThaiNote wordId={w.id} />}
       </div>
 
       {/* Rating buttons — appear after Check */}
