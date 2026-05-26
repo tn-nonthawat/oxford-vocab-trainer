@@ -88,6 +88,7 @@
     <!-- ── Login form ──────────────────────────────────────────────────── -->
     {% if active_tab == "login" %}
     <form method="POST" action="{{ url_for('auth.login') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="space-y-5">
 
         <div>
@@ -135,6 +136,7 @@
     <!-- ── Register form ──────────────────────────────────────────────── -->
     {% else %}
     <form method="POST" action="{{ url_for('auth.register') }}" novalidate>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="space-y-5">
 
         <div>

@@ -7,6 +7,8 @@
 # ── Web framework ──────────────────────────────────────────────────────────────
 Flask>=3.0
 Werkzeug>=3.0          # password hashing (generate_password_hash / check_password_hash)
+Flask-Limiter>=3.5     # per-route rate limiting (brute-force / spam protection)
+Flask-WTF>=1.2         # CSRF protection for login / register forms
 
 # ── PDF parsing (word list import) ────────────────────────────────────────────
 pdfplumber>=0.10       # coordinate-aware PDF layout extraction

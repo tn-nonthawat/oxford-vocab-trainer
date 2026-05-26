@@ -76,6 +76,11 @@ def create_app(config_name: str = "default") -> Flask:
     app.secret_key                 = _load_or_create_secret(key_path)
     app.permanent_session_lifetime = timedelta(days=30)
 
+    # Initialise extensions (must come before blueprint registration)
+    from extensions import csrf, limiter
+    csrf.init_app(app)
+    limiter.init_app(app)
+
     # Register Blueprints
     from routes.auth_routes import auth_bp
     from routes.session_routes import session_bp
