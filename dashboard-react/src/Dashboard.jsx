@@ -1516,8 +1516,8 @@ export default function Dashboard({ onStartSession }) {
         </GridLayout>
       </main>
 
-      {/* ── Add Cards panel — shown whenever cards are hidden ──────────── */}
-      {hiddenCards.size > 0 && (
+      {/* ── Add Cards panel — shown only in edit mode when cards are hidden ── */}
+      {editMode && hiddenCards.size > 0 && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-4 animate-slideUp">
           <div className="border-2 border-dashed border-blue-200 rounded-2xl p-4 bg-blue-50/40">
             <p className="text-xs font-semibold text-blue-500 uppercase tracking-wider mb-3 select-none">
