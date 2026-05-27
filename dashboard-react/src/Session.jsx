@@ -143,7 +143,6 @@ function speakFull(word, meaning, example) {
     u.rate  = index === 0 ? 0.80 : 0.90
     if (voice) u.voice = voice
     u.onend = () => { index++; speakNext() }
-    index++
     window.speechSynthesis.speak(u)
   }
 
