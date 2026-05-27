@@ -7,6 +7,7 @@ Tables
   words      : Oxford 3000 word list  (shared across all users)
   progress   : Per-user SM-2 SRS state  (user_id + word_id composite key)
   user_stats : Per-user daily learning streak
+  app_meta   : App-wide key-value store (e.g. last_known_date for date_service fallback)
 """
 
 import os
@@ -106,6 +107,14 @@ def init_db() -> None:
             last_activity_date TEXT,
             current_streak     INTEGER DEFAULT 0,
             FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    """)
+
+    # ── App-wide key-value metadata (used by date_service Tier-2 fallback) ───
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS app_meta (
+            key   TEXT PRIMARY KEY,
+            value TEXT
         )
     """)
 
