@@ -123,8 +123,9 @@ function speakWord(word) {
   _speakText(word)
 }
 
-/** Speak word → meaning → example in sequence via onend chaining.
- *  (Queuing multiple speak() calls at once is unreliable in Chrome.) */
+/** Speak word + meaning + example as a single utterance.
+ *  Single utterance is the most reliable approach across Chrome/Safari/Edge.
+ *  Parts are joined with ". " so TTS pauses naturally between them. */
 function speakFull(word, meaning, example) {
   if (!window.speechSynthesis) return
   window.speechSynthesis.cancel()
@@ -133,21 +134,16 @@ function speakFull(word, meaning, example) {
   if (voices.length) _ttsVoices = voices
   const voice = _pickEnglishVoice(_ttsVoices)
 
-  const parts = [word, meaning, example].filter(Boolean)
-  let index = 0
+  const text = [word, meaning, example].filter(Boolean).join('. ')
 
-  function speakNext() {
-    if (index >= parts.length) return
-    const u = new SpeechSynthesisUtterance(parts[index])
-    u.lang  = 'en-US'
-    u.rate  = index === 0 ? 0.80 : 0.90
+  // Small delay after cancel() so Chrome is ready
+  setTimeout(() => {
+    const u    = new SpeechSynthesisUtterance(text)
+    u.lang     = 'en-US'
+    u.rate     = 0.85
     if (voice) u.voice = voice
-    u.onend = () => { index++; speakNext() }
     window.speechSynthesis.speak(u)
-  }
-
-  // Small delay after cancel() so browser is ready
-  setTimeout(speakNext, 80)
+  }, 80)
 }
 
 // ── Thai Note ─────────────────────────────────────────────────────────────────
