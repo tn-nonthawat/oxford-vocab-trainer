@@ -485,20 +485,38 @@ function CefrCard({ meta, count, total }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  STAT CARD  — single metric
 // ─────────────────────────────────────────────────────────────────────────────
-function StatCard({ icon, value, label, valueClass = 'text-gray-800' }) {
-  return (
-    <Card>
-      <div className="flex items-center gap-4 h-full">
-        <span className="text-4xl select-none shrink-0">{icon}</span>
-        <div className="min-w-0">
-          <p className={`text-3xl font-extrabold tabular-nums leading-none ${valueClass}`}>
-            {typeof value === 'number' ? value.toLocaleString() : value}
+function StatCard({ icon, value, label, valueClass = 'text-gray-800', onClick }) {
+  const inner = (
+    <div className="flex items-center gap-4 h-full">
+      <span className="text-4xl select-none shrink-0">{icon}</span>
+      <div className="min-w-0">
+        <p className={`text-3xl font-extrabold tabular-nums leading-none ${valueClass}`}>
+          {typeof value === 'number' ? value.toLocaleString() : value}
+        </p>
+        <p className="text-sm text-gray-500 mt-1 truncate">{label}</p>
+        {onClick && (
+          <p className="text-xs text-blue-400 mt-0.5 opacity-0 group-hover:opacity-100 transition-opacity select-none">
+            tap to view →
           </p>
-          <p className="text-sm text-gray-500 mt-1 truncate">{label}</p>
-        </div>
+        )}
       </div>
-    </Card>
+    </div>
   )
+
+  if (onClick) {
+    return (
+      <Card className="group hover:shadow-md hover:border-blue-200 transition-all duration-150">
+        <button
+          onClick={onClick}
+          className="no-drag w-full h-full text-left cursor-pointer active:scale-[0.98] transition-transform"
+        >
+          {inner}
+        </button>
+      </Card>
+    )
+  }
+
+  return <Card>{inner}</Card>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -535,7 +553,7 @@ function StatsCard({ progress, streak }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  DISTRIBUTION + PROGRESS CARD  (combined)
 // ─────────────────────────────────────────────────────────────────────────────
-function DistProgressCard({ levelCounts, total, progress, mastery }) {
+function DistProgressCard({ levelCounts, total, progress, mastery, onCategoryClick }) {
   const introPct = total > 0 ? (progress.introduced / total * 100).toFixed(1) : 0
 
   return (
@@ -597,27 +615,59 @@ function DistProgressCard({ levelCounts, total, progress, mastery }) {
         Memory Breakdown
       </p>
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center">
+        {/* Mastered */}
+        <button
+          onClick={() => onCategoryClick('mastered')}
+          className="no-drag bg-emerald-50 border border-emerald-100 rounded-xl p-3 text-center
+                     hover:bg-emerald-100 hover:border-emerald-300 hover:shadow-sm
+                     active:scale-95 transition-all duration-150 cursor-pointer group"
+          title="View mastered words"
+        >
           <p className="text-2xl font-extrabold text-emerald-600 tabular-nums">
             {mastery.mastered.toLocaleString()}
           </p>
           <p className="text-xs font-bold text-emerald-700 mt-0.5">Mastered</p>
           <p className="text-xs text-gray-400">4+ reviews</p>
-        </div>
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
+          <p className="text-xs text-emerald-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity select-none">
+            tap to view →
+          </p>
+        </button>
+
+        {/* Learning */}
+        <button
+          onClick={() => onCategoryClick('learning')}
+          className="no-drag bg-blue-50 border border-blue-100 rounded-xl p-3 text-center
+                     hover:bg-blue-100 hover:border-blue-300 hover:shadow-sm
+                     active:scale-95 transition-all duration-150 cursor-pointer group"
+          title="View learning words"
+        >
           <p className="text-2xl font-extrabold text-blue-600 tabular-nums">
             {mastery.learning.toLocaleString()}
           </p>
           <p className="text-xs font-bold text-blue-700 mt-0.5">Learning</p>
           <p className="text-xs text-gray-400">1–3 reviews</p>
-        </div>
-        <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center">
+          <p className="text-xs text-blue-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity select-none">
+            tap to view →
+          </p>
+        </button>
+
+        {/* Struggling */}
+        <button
+          onClick={() => onCategoryClick('struggling')}
+          className="no-drag bg-red-50 border border-red-100 rounded-xl p-3 text-center
+                     hover:bg-red-100 hover:border-red-300 hover:shadow-sm
+                     active:scale-95 transition-all duration-150 cursor-pointer group"
+          title="View struggling words"
+        >
           <p className="text-2xl font-extrabold text-red-500 tabular-nums">
             {mastery.struggling.toLocaleString()}
           </p>
           <p className="text-xs font-bold text-red-600 mt-0.5">Struggling</p>
           <p className="text-xs text-gray-400">needs work</p>
-        </div>
+          <p className="text-xs text-red-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity select-none">
+            tap to view →
+          </p>
+        </button>
       </div>
 
       {/* ── Mastery Rate ─────────────────────────────────────────────────── */}
@@ -820,6 +870,166 @@ function StudyCard({ progress, total, levelCounts, onStartSession, onToast, user
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//  WORD LIST MODAL  — shows words by memory category (mastered/learning/struggling)
+// ─────────────────────────────────────────────────────────────────────────────
+const CATEGORY_META = {
+  introduced: { label: 'Words Introduced', emoji: '🎓', bg: 'bg-gray-50',    text: 'text-gray-700',    border: 'border-gray-200',    badge: 'bg-gray-100 text-gray-700'       },
+  mastered:   { label: 'Mastered',         emoji: '🟢', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', badge: 'bg-emerald-100 text-emerald-700' },
+  learning:   { label: 'Learning',         emoji: '🔵', bg: 'bg-blue-50',    text: 'text-blue-700',    border: 'border-blue-200',    badge: 'bg-blue-100 text-blue-700'       },
+  struggling: { label: 'Struggling',       emoji: '🔴', bg: 'bg-red-50',     text: 'text-red-700',     border: 'border-red-200',     badge: 'bg-red-100 text-red-600'         },
+}
+
+function WordListModal({ category, onClose }) {
+  const [words,   setWords]   = useState(null)  // null = loading
+  const [error,   setError]   = useState(null)
+  const [search,  setSearch]  = useState('')
+
+  const meta = CATEGORY_META[category]
+
+  useEffect(() => {
+    setWords(null)
+    setError(null)
+    fetch(`/api/word-list?category=${category}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(json => {
+        if (json.error) throw new Error(json.error)
+        setWords(json.words)
+      })
+      .catch(e => setError(e.message))
+  }, [category])
+
+  // Close on Escape key
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const filtered = words
+    ? words.filter(w => w.word.toLowerCase().includes(search.toLowerCase()))
+    : []
+
+  return (
+    <div
+      className="fixed inset-0 z-[80] flex items-center justify-center px-4 bg-black/50 backdrop-blur-sm animate-fadeIn"
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col animate-slideUp">
+
+        {/* Header */}
+        <div className={`flex items-center justify-between px-5 py-4 border-b ${meta.border} rounded-t-2xl ${meta.bg}`}>
+          <div className="flex items-center gap-2">
+            <span className="text-xl select-none">{meta.emoji}</span>
+            <h2 className={`text-base font-bold ${meta.text}`}>{meta.label} Words</h2>
+            {words && (
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${meta.badge}`}>
+                {words.length}
+              </span>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full
+                       text-gray-400 hover:text-gray-700 hover:bg-gray-100
+                       transition-colors text-lg leading-none cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Search bar */}
+        {words && words.length > 0 && (
+          <div className="px-4 pt-3 pb-1 shrink-0">
+            <input
+              type="text"
+              placeholder="Search words…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full text-sm border border-gray-200 rounded-xl px-3 py-2
+                         focus:outline-none focus:ring-2 focus:ring-blue-300
+                         placeholder:text-gray-300"
+              autoFocus
+            />
+          </div>
+        )}
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0">
+
+          {/* Loading */}
+          {!words && !error && (
+            <div className="flex items-center justify-center py-12">
+              <div className="w-8 h-8 rounded-full border-4 border-blue-100 border-t-blue-500 animate-spin" />
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div className="text-center py-10 text-red-500 text-sm">{error}</div>
+          )}
+
+          {/* Empty */}
+          {words && words.length === 0 && (
+            <div className="text-center py-12 text-gray-400 text-sm select-none">
+              <div className="text-4xl mb-3">🎉</div>
+              <p>No words in this category yet.</p>
+            </div>
+          )}
+
+          {/* No search results */}
+          {words && words.length > 0 && filtered.length === 0 && (
+            <div className="text-center py-10 text-gray-400 text-sm select-none">
+              No words match "<strong>{search}</strong>"
+            </div>
+          )}
+
+          {/* Word list */}
+          {filtered.length > 0 && (
+            <ul className="space-y-1.5">
+              {filtered.map(w => (
+                <li key={w.id}
+                    className="flex items-center justify-between gap-3
+                               bg-gray-50 hover:bg-gray-100 rounded-xl px-3 py-2.5
+                               transition-colors">
+                  <div className="flex items-baseline gap-2 min-w-0">
+                    <span className="font-semibold text-gray-800 text-sm truncate">{w.word}</span>
+                    {w.pos && (
+                      <span className="text-xs text-gray-400 shrink-0">{w.pos}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {w.cefr_level && (
+                      <span className="text-xs font-medium text-gray-500 bg-white
+                                       border border-gray-200 rounded-md px-1.5 py-0.5">
+                        {w.cefr_level}
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-400 tabular-nums" title="Next review">
+                      📅 {w.next_review_date ?? '—'}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-gray-100 rounded-b-2xl shrink-0">
+          <p className="text-xs text-gray-400 text-center select-none">
+            {category === 'introduced'  && 'All words you have studied at least once'}
+            {category === 'mastered'   && '4+ reviews · EF ≥ 1.8'}
+            {category === 'learning'   && '1–3 reviews'}
+            {category === 'struggling' && 'Easiness Factor < 1.8 — needs more practice'}
+          </p>
+        </div>
+
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //  CONFIRM MODAL  — dangerous-action confirmation dialog
 // ─────────────────────────────────────────────────────────────────────────────
 function ConfirmModal({ title, body, confirmLabel = 'Confirm', onConfirm, onCancel }) {
@@ -1010,6 +1220,9 @@ export default function Dashboard({ onStartSession }) {
     setHiddenCards(loadHidden(u))
   }, [data?.username])
 
+  // ── Word list modal (Memory Breakdown cards) ──────────────────────────────
+  const [wordListCategory, setWordListCategory] = useState(null) // 'mastered'|'learning'|'struggling'|null
+
   // ── Toast state (rendered outside GridLayout to avoid CSS-transform breakage)
   const [toast, setToast] = useState('')
 
@@ -1158,19 +1371,25 @@ export default function Dashboard({ onStartSession }) {
     'cefr-A2':     <CefrCard meta={CEFR_META[1]} count={levelCounts.A2 ?? 0} total={total} />,
     'cefr-B1':     <CefrCard meta={CEFR_META[2]} count={levelCounts.B1 ?? 0} total={total} />,
     'cefr-B2':     <CefrCard meta={CEFR_META[3]} count={levelCounts.B2 ?? 0} total={total} />,
-    'stat-intro':  <StatCard icon="🎓" value={progress.introduced} label="words introduced" />,
+    'stat-intro':  <StatCard icon="🎓" value={progress.introduced} label="words introduced" onClick={() => setWordListCategory('introduced')} />,
     'stat-due':    <StatCard icon="⏰" value={progress.due_today} label="due for review today"
                      valueClass={progress.due_today > 0 ? 'text-orange-500' : 'text-gray-800'} />,
     'stat-streak': <StatCard icon="🔥" value={`${streak} day${streak !== 1 ? 's' : ''}`}
                      label="study streak" valueClass="text-orange-500" />,
     'stats':       <StatsCard progress={progress} streak={streak} />,
-    'dist-progress': <DistProgressCard levelCounts={levelCounts} total={total} progress={progress} mastery={mastery} />,
+    'dist-progress': <DistProgressCard levelCounts={levelCounts} total={total} progress={progress} mastery={mastery} onCategoryClick={setWordListCategory} />,
     'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} onStartSession={onStartSession} onToast={setToast} username={username} />,
   }
 
   return (
     <div className="min-h-screen">
       {toast && <Toast message={toast} onDone={() => setToast('')} topOffset={headerH} />}
+      {wordListCategory && (
+        <WordListModal
+          category={wordListCategory}
+          onClose={() => setWordListCategory(null)}
+        />
+      )}
       {Navbar}
 
       {/* ── Banner: edit-mode active ──────────────────────────────────────── */}

@@ -243,6 +243,49 @@ def api_stats():
     })
 
 
+@session_bp.route("/api/word-list")
+@login_required
+@limiter.limit("30 per minute")
+def api_word_list():
+    """
+    Return words for the logged-in user grouped by memory category.
+
+    Query param
+    -----------
+    category : mastered | learning | struggling
+    """
+    user_id  = session["user_id"]
+    category = request.args.get("category", "").strip().lower()
+
+    if category not in ("mastered", "learning", "struggling", "introduced"):
+        return jsonify({"error": "category must be mastered, learning, struggling, or introduced"}), 400
+
+    conn = get_connection()
+    cur  = conn.cursor()
+
+    if category == "mastered":
+        where = "p.repetitions >= 4"
+    elif category == "learning":
+        where = "p.repetitions >= 1 AND p.repetitions <= 3"
+    elif category == "struggling":
+        where = "p.easiness_factor < 1.8"
+    else:  # introduced — all words the user has ever studied
+        where = "1=1"
+
+    cur.execute(f"""
+        SELECT w.id, w.word, w.pos, w.cefr_level,
+               p.repetitions, p.easiness_factor, p.interval, p.next_review_date
+        FROM   words w
+        JOIN   progress p ON w.id = p.word_id
+        WHERE  p.user_id = ? AND {where}
+        ORDER  BY w.word ASC
+    """, (user_id,))
+
+    words = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return jsonify({"category": category, "words": words})
+
+
 @session_bp.route("/api/word-meaning/<int:word_id>")
 @login_required
 @limiter.limit("60 per minute")
