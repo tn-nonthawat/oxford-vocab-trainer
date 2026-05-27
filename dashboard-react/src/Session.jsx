@@ -90,36 +90,67 @@ function _doSpeak(word) {
   window.speechSynthesis.speak(utter)
 }
 
-function speakWord(word) {
-  if (!window.speechSynthesis || !word) return
-  window.speechSynthesis.cancel()
+function _speakText(text) {
+  if (!window.speechSynthesis || !text) return
 
-  // If voices are already loaded, speak immediately
   const voices = window.speechSynthesis.getVoices()
   if (voices.length) {
     _ttsVoices = voices
-    _doSpeak(word)
+    _doSpeak(text)
     return
   }
 
-  // Voices not ready yet (common on Android) — wait for voiceschanged
   let fired = false
   const handler = () => {
     if (fired) return
     fired = true
     window.speechSynthesis.removeEventListener('voiceschanged', handler)
-    _doSpeak(word)
+    _doSpeak(text)
   }
   window.speechSynthesis.addEventListener('voiceschanged', handler)
-
-  // Fallback: if voiceschanged never fires (some iOS/desktop), speak after 600ms
-  // lang='en-US' alone is usually enough when no English voice is matched
   setTimeout(() => {
     if (fired) return
     fired = true
     window.speechSynthesis.removeEventListener('voiceschanged', handler)
-    _doSpeak(word)
+    _doSpeak(text)
   }, 600)
+}
+
+/** Speak only the word (front face / first encounter) */
+function speakWord(word) {
+  if (!window.speechSynthesis || !word) return
+  window.speechSynthesis.cancel()
+  _speakText(word)
+}
+
+/** Speak word + meaning + example sentence in sequence */
+function speakFull(word, meaning, example) {
+  if (!window.speechSynthesis) return
+  window.speechSynthesis.cancel()
+
+  const voices = window.speechSynthesis.getVoices()
+  if (voices.length) _ttsVoices = voices
+
+  const voice = _pickEnglishVoice(_ttsVoices)
+
+  function makeUtter(text, rate = 0.85) {
+    const u = new SpeechSynthesisUtterance(text)
+    u.lang = 'en-US'
+    u.rate = rate
+    if (voice) u.voice = voice
+    return u
+  }
+
+  // Queue: word → pause → meaning → pause → example
+  const parts = [word]
+  if (meaning)  parts.push(meaning)
+  if (example)  parts.push(example)
+
+  // Speak each part — browser queues utterances automatically
+  parts.forEach((text, i) => {
+    const u = makeUtter(text, i === 0 ? 0.80 : 0.90)
+    window.speechSynthesis.speak(u)
+  })
 }
 
 // ── Thai Note ─────────────────────────────────────────────────────────────────
@@ -318,7 +349,8 @@ function NewWordCard({ word: w, onRate }) {
                                ${CEFR_CLS[w.cefr_level] || 'bg-gray-100 text-gray-600'}`}>
                 {w.cefr_level}
               </span>
-              <button onClick={() => speakWord(w.word)}
+              <button onClick={() => speakFull(w.word, meaning, example)}
+                      title="Read word + meaning + example"
                       className="ml-auto flex items-center justify-center w-8 h-8
                                  rounded-full bg-blue-50 hover:bg-blue-100 active:scale-90
                                  text-base shadow-sm border border-blue-100
@@ -448,7 +480,8 @@ function ReviewCard({ word: w, onRate }) {
         <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
           {w.pos}
         </span>
-        <button onClick={() => speakWord(w.word)}
+        <button onClick={() => speakFull(w.word, meaning, example)}
+                title="Read word + meaning + example"
                 className="ml-auto flex items-center justify-center w-9 h-9
                            rounded-full bg-blue-50 hover:bg-blue-100 active:scale-90
                            border border-blue-100 text-lg shadow-sm
