@@ -43,7 +43,7 @@ def _word_counts() -> tuple[int, dict]:
 # ── Progress stats ────────────────────────────────────────────────────────────
 
 def _progress_stats(user_id: int) -> dict:
-    """Return {introduced, due_today} for *user_id*."""
+    """Return {introduced, due_today, new_today} for *user_id*."""
     today = get_current_date().strftime("%Y-%m-%d")
     conn  = get_connection()
     cur   = conn.cursor()
@@ -59,8 +59,18 @@ def _progress_stats(user_id: int) -> dict:
         (user_id, today),
     )
     due = cur.fetchone()["n"]
+
+    # Words first learned today (created_at = today, repetitions = 1)
+    # repetitions=1 ensures we count only first-time introduction, not re-entries
+    cur.execute(
+        "SELECT COUNT(*) AS n FROM progress "
+        "WHERE user_id = ? AND created_at = ? AND repetitions = 1",
+        (user_id, today),
+    )
+    new_today = cur.fetchone()["n"]
+
     conn.close()
-    return {"introduced": introduced, "due_today": due}
+    return {"introduced": introduced, "due_today": due, "new_today": new_today}
 
 
 # ── Mastery stats ─────────────────────────────────────────────────────────────

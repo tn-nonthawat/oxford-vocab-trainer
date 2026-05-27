@@ -192,6 +192,7 @@ function useDashboardStats() {
               learning  : json.learning   ?? 0,
               struggling: json.struggling ?? 0,
             },
+            newToday: json.new_today ?? 0,
           })
         }
       })
@@ -741,7 +742,10 @@ function DistProgressCard({ levelCounts, total, progress, mastery, onCategoryCli
 //  remaining-words label updates to reflect the chosen level, and when the
 //  button is clicked the /api/new-session endpoint is called with ?level=X.
 // ─────────────────────────────────────────────────────────────────────────────
-function StudyCard({ progress, total, levelCounts, onStartSession, onToast, username }) {
+const QUOTA_SOFT = 5   // recommended daily new words
+const QUOTA_HARD = 10  // hard cap (still allows, but warns strongly)
+
+function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onToast, username }) {
   // ── Initialise filter from user-specific localStorage key ──────────────────
   const [cefrFilter, setCefrFilter] = useState(() => {
     try { return localStorage.getItem(lsCefrKey(username)) || 'All' } catch { return 'All' }
@@ -768,7 +772,22 @@ function StudyCard({ progress, total, levelCounts, onStartSession, onToast, user
     ? 'Introduce vocabulary at your level'
     : `Filtered to ${cefrFilter} · ${CEFR_META.find(m => m.level === cefrFilter)?.label ?? ''}`
 
-  const hasDue = progress.due_today > 0
+  const hasDue      = progress.due_today > 0
+  const quotaFull   = newToday >= QUOTA_HARD   // hard cap — block
+  const quotaWarn   = newToday >= QUOTA_SOFT   // soft cap — warn
+  const canLearnNew = !hasDue && !quotaFull    // key rule: clear reviews first
+
+  function handleLearnClick() {
+    if (hasDue) {
+      onToast(`⏰ Clear your ${progress.due_today} due words first before learning new ones!`)
+      return
+    }
+    if (quotaFull) {
+      onToast(`🛑 Daily limit reached (${QUOTA_HARD} new words). Rest and review tomorrow!`)
+      return
+    }
+    onStartSession({ type: 'new', level: cefrFilter })
+  }
 
   function handleReviewClick() {
     if (hasDue) {
@@ -778,6 +797,10 @@ function StudyCard({ progress, total, levelCounts, onStartSession, onToast, user
     }
   }
 
+  // Quota bar colour
+  const quotaBarColor = quotaFull ? '#ef4444' : quotaWarn ? '#f59e0b' : '#3b82f6'
+  const quotaPct      = Math.min(100, Math.round(newToday / QUOTA_HARD * 100))
+
   return (
     <Card>
       <div className="flex flex-col h-full gap-3">
@@ -786,6 +809,33 @@ function StudyCard({ progress, total, levelCounts, onStartSession, onToast, user
         <p className="text-lg font-semibold text-gray-700 select-none shrink-0">
           🚀 Start Studying
         </p>
+
+        {/* ── Daily new-word quota bar ────────────────────────────────────── */}
+        <div className="shrink-0">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs font-semibold text-gray-500 select-none">
+              📚 New words today
+            </span>
+            <span className={`text-xs font-bold tabular-nums ${
+              quotaFull ? 'text-red-500' : quotaWarn ? 'text-amber-500' : 'text-blue-600'
+            }`}>
+              {newToday} / {QUOTA_HARD}
+            </span>
+          </div>
+          <div className="bg-gray-100 rounded-full h-2 overflow-hidden">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${quotaPct}%`, background: quotaBarColor }}
+            />
+          </div>
+          <p className="text-xs text-gray-400 mt-0.5 select-none">
+            {quotaFull
+              ? '🛑 Daily limit reached — rest your brain!'
+              : quotaWarn
+              ? `⚠️ Recommended quota (${QUOTA_SOFT}) reached — consider stopping`
+              : `Recommended: ${QUOTA_SOFT} · Max: ${QUOTA_HARD} words/day`}
+          </p>
+        </div>
 
         {/* ── CEFR level filter pills ─────────────────────────────────────── */}
         <div className="flex gap-1.5 flex-wrap shrink-0">
@@ -821,19 +871,33 @@ function StudyCard({ progress, total, levelCounts, onStartSession, onToast, user
 
           {/* Learn New Words */}
           <button
-            onClick={() => onStartSession({ type: 'new', level: cefrFilter })}
-            className="no-drag group flex items-center gap-4 bg-blue-600 hover:bg-blue-700
-                       active:scale-95 text-white rounded-2xl shadow-lg p-5
-                       transition-all duration-200 cursor-pointer text-left w-full h-full"
+            onClick={handleLearnClick}
+            className={[
+              'no-drag group flex items-center gap-4 rounded-2xl shadow-lg p-5',
+              'transition-all duration-200 text-left w-full h-full',
+              canLearnNew
+                ? 'bg-blue-600 hover:bg-blue-700 active:scale-95 text-white cursor-pointer'
+                : 'bg-gray-200 text-gray-400 cursor-pointer',
+            ].join(' ')}
           >
-            <span className="text-4xl select-none group-hover:scale-110 transition-transform shrink-0">
-              ✨
+            <span className={`text-4xl select-none transition-transform shrink-0 ${canLearnNew ? 'group-hover:scale-110' : 'grayscale'}`}>
+              {quotaFull ? '🛑' : hasDue ? '⏰' : '✨'}
             </span>
             <div>
               <p className="text-base font-bold leading-tight">Learn New Words</p>
-              <p className="text-blue-200 text-sm mt-0.5">{levelDescription}</p>
-              <p className="text-blue-100 text-xs mt-1 font-medium tabular-nums">
-                {remainingLabel}
+              <p className={`text-sm mt-0.5 ${canLearnNew ? 'text-blue-200' : 'text-gray-400'}`}>
+                {hasDue
+                  ? `Clear ${progress.due_today} due words first`
+                  : quotaFull
+                  ? 'Daily limit reached'
+                  : levelDescription}
+              </p>
+              <p className={`text-xs mt-1 font-medium tabular-nums ${canLearnNew ? 'text-blue-100' : 'text-gray-400'}`}>
+                {hasDue
+                  ? '⚠️ Review first, then learn new'
+                  : quotaFull
+                  ? 'Come back tomorrow!'
+                  : remainingLabel}
               </p>
             </div>
           </button>
@@ -1248,7 +1312,7 @@ export default function Dashboard({ onStartSession }) {
   if (loading) return <LoadingScreen />
   if (error)   return <ErrorScreen message={error} />
 
-  const { username, total, levelCounts, progress, mastery, streak } = data
+  const { username, total, levelCounts, progress, mastery, streak, newToday } = data
 
   // ── Shared navbar ──────────────────────────────────────────────────────────
   const Navbar = (
@@ -1378,7 +1442,7 @@ export default function Dashboard({ onStartSession }) {
                      label="study streak" valueClass="text-orange-500" />,
     'stats':       <StatsCard progress={progress} streak={streak} />,
     'dist-progress': <DistProgressCard levelCounts={levelCounts} total={total} progress={progress} mastery={mastery} onCategoryClick={setWordListCategory} />,
-    'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} onStartSession={onStartSession} onToast={setToast} username={username} />,
+    'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} newToday={newToday} onStartSession={onStartSession} onToast={setToast} username={username} />,
   }
 
   return (

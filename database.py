@@ -226,7 +226,16 @@ def _migrate() -> None:
         """)
         print("[database] Migration: added users.is_admin, first user promoted to admin.")
 
-    # ── 5. words: insert number words + articles that old parser missed ─────────
+    # ── 5. progress: add created_at (tracks when each word was first learned) ────
+    cur.execute("PRAGMA table_info(progress)")
+    prog_cols2 = {r["name"] for r in cur.fetchall()}
+    if "created_at" not in prog_cols2:
+        cur.execute("ALTER TABLE progress ADD COLUMN created_at TEXT")
+        # Back-fill existing rows with a placeholder so queries work cleanly
+        cur.execute("UPDATE progress SET created_at = '2000-01-01' WHERE created_at IS NULL")
+        print("[database] Migration: added progress.created_at")
+
+    # ── 6. words: insert number words + articles that old parser missed ─────────
     # Original import predates support for pos="number" / "indefinite article" /
     # "definite article", so these Oxford-3000 entries were never written to DB.
     # This migration is idempotent: INSERT OR IGNORE is a no-op if the row exists.

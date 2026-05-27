@@ -192,12 +192,13 @@ def api_submit_review():
             """, (iv, ef, reps, next_date, user_id, word_id))
         else:
             iv, ef, reps, next_date = calculate_next_review(quality, 0, 2.5, 0)
+            today_str = get_current_date().strftime("%Y-%m-%d")
             cur.execute("""
                 INSERT INTO progress
                     (user_id, word_id, interval, easiness_factor,
-                     repetitions, next_review_date)
-                VALUES (?, ?, ?, ?, ?, ?)
-            """, (user_id, word_id, iv, ef, reps, next_date))
+                     repetitions, next_review_date, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (user_id, word_id, iv, ef, reps, next_date, today_str))
 
         conn.commit()
         streak = _update_streak(user_id)
