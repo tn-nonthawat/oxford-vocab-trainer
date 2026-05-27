@@ -24,7 +24,8 @@ from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
 _BANGKOK_TZ   = ZoneInfo("Asia/Bangkok")
-_TIME_API_URL = "https://worldtimeapi.org/api/timezone/Asia/Bangkok"
+# timeapi.io — free, no auth, returns {"dateTime": "2026-05-27T14:30:00.123456"}
+_TIME_API_URL = "https://timeapi.io/api/time/current/zone?timeZone=Asia%2FBangkok"
 _CACHE_TTL    = 60    # seconds — how long a fetched date is considered fresh
 _FAIL_THRESH  = 3     # consecutive API failures before switching to DB fallback
 
@@ -95,7 +96,7 @@ def get_current_date() -> date:
     if _cache["value"] is not None and now - _cache["ts"] < _CACHE_TTL:
         return _cache["value"]
 
-    # ── Tier 1: WorldTimeAPI ──────────────────────────────────────────────────
+    # ── Tier 1: timeapi.io ───────────────────────────────────────────────────
     try:
         req = urllib.request.Request(
             _TIME_API_URL,
@@ -103,7 +104,9 @@ def get_current_date() -> date:
         )
         with urllib.request.urlopen(req, timeout=4) as resp:
             payload = json.loads(resp.read().decode())
-            result  = date.fromisoformat(payload["datetime"][:10])
+            # timeapi.io returns {"dateTime": "2026-05-27T14:30:00.123"}
+            raw    = payload.get("dateTime") or payload.get("datetime", "")
+            result = date.fromisoformat(raw[:10])
 
         # Success — reset failure counter, persist to DB, update cache
         _cache["fail_count"] = 0
