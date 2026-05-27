@@ -33,7 +33,7 @@ Learn English/
 │   └── session_routes.py    # Blueprint "session" — /, /api/*, /import-*
 │
 ├── services/
-│   ├── date_service.py      # get_current_date() — WorldTimeAPI + zoneinfo fallback
+│   ├── date_service.py      # get_current_date() — timeapi.io + 3-tier fallback
 │   ├── dictionary.py        # fetch_meaning(word, pos, cefr) — Free Dictionary API
 │   ├── importer.py          # Background PDF import worker (_start_import, _snapshot)
 │   └── stats.py             # Per-user stats helpers (_word_counts, _progress_stats, …)
@@ -43,6 +43,10 @@ Learn English/
 │   └── assets/              # Hashed JS/CSS bundles
 │
 └── dashboard-react/         # React source (Vite project)
+    └── src/
+        ├── App.jsx
+        ├── Dashboard.jsx    # Main dashboard — cards, quota bar, word-list modal
+        └── Session.jsx      # Flashcard session — new-word + review modes
 ```
 
 ---
@@ -55,6 +59,7 @@ users (
     id            INTEGER PRIMARY KEY AUTOINCREMENT,
     username      TEXT    NOT NULL UNIQUE COLLATE NOCASE,
     password_hash TEXT    NOT NULL,
+    is_admin      INTEGER NOT NULL DEFAULT 0,
     created_at    TEXT    DEFAULT (date('now'))
 )
 
@@ -77,6 +82,7 @@ progress (
     easiness_factor  REAL    DEFAULT 2.5,
     repetitions      INTEGER DEFAULT 0,
     next_review_date TEXT,          -- ISO-8601 "YYYY-MM-DD"
+    created_at       TEXT,          -- date word was first introduced (ISO-8601)
     UNIQUE (user_id, word_id)
 )
 
@@ -86,10 +92,23 @@ user_stats (
     last_activity_date TEXT,
     current_streak     INTEGER DEFAULT 0
 )
+
+-- App-wide key-value metadata store
+app_meta (
+    key   TEXT PRIMARY KEY,
+    value TEXT
+    -- used keys: "last_known_date" (date_service Tier-2 fallback)
+)
 ```
 
 **Migration note:** `database._migrate()` runs on every startup and is idempotent.
-Handles adding columns (`meaning`, `example_sentence`) and multi-user upgrades.
+Migration steps (in order):
+1. Add `words.meaning` / `words.example_sentence`
+2. Add `progress.user_id` (multi-user upgrade — old rows assigned to `legacy` user)
+3. Upgrade `user_stats` from singleton → per-user schema
+4. Add `users.is_admin` (first real user auto-promoted)
+5. Add `progress.created_at` (tracks when each word was first introduced)
+6. Insert missing number/article words that the old PDF parser missed
 
 ---
 
@@ -104,13 +123,46 @@ All `/api/*` and session routes require login (`@login_required` → checks `ses
 | GET | `/logout` | Clear session, redirect to `/login` |
 | GET | `/` | Serve React SPA (`static/react/index.html`) |
 | GET | `/assets/<filename>` | Serve Vite-built JS/CSS bundles |
-| POST | `/import-data` | Start background PDF import thread |
+| POST | `/import-data` | Start background PDF import thread (admin only) |
 | GET | `/import-status` | Poll import progress `{status, pages_done, total_pages, words_found}` |
 | GET | `/api/new-session?level=A1` | 10 random unseen words (optional CEFR filter) |
-| GET | `/api/review-session` | Up to 20 words due for review today |
+| GET | `/api/review-session` | Up to 20 words due for review today (oldest first) |
 | POST | `/api/submit-review` | `{word_id, quality}` → SM-2 update + streak update |
-| GET | `/api/stats` | Dashboard stats for logged-in user |
+| GET | `/api/stats` | Dashboard stats for logged-in user (see shape below) |
 | GET | `/api/word-meaning/<word_id>` | Fetch (and cache) meaning from Free Dictionary API |
+| GET | `/api/word-list?category=X` | Words grouped by memory category (see below) |
+
+### `/api/stats` response shape
+```json
+{
+  "username":     "string",
+  "total":        3000,
+  "level_counts": {"A1": 600, "A2": 750, "B1": 900, "B2": 750},
+  "introduced":   56,
+  "due_today":    4,
+  "new_today":    3,
+  "streak":       5,
+  "mastered":     0,
+  "learning":     40,
+  "struggling":   16
+}
+```
+- `new_today` — words first introduced today (`progress.created_at = today AND repetitions = 1`)
+
+### `/api/word-list?category=X`
+Valid values: `mastered` | `learning` | `struggling` | `introduced`
+
+Returns:
+```json
+{
+  "category": "struggling",
+  "words": [
+    {"id": 1, "word": "...", "pos": "n.", "cefr_level": "B1",
+     "repetitions": 2, "easiness_factor": 1.7, "interval": 3,
+     "next_review_date": "2026-05-28"}
+  ]
+}
+```
 
 ---
 
@@ -129,13 +181,58 @@ calculate_next_review(quality, current_interval, current_ef, current_repetitions
 
 ---
 
-## Date service quirk (important!)
+## Date service (important!)
 
 The host machine has a **dead BIOS battery** — the system clock may be wrong after reboot.
-`services/date_service.py` fetches the real date from **WorldTimeAPI** (Asia/Bangkok, UTC+7)
-with a 60-second in-memory cache. Fallback: `zoneinfo.ZoneInfo("Asia/Bangkok")`.
+`services/date_service.py` uses a **3-tier fallback strategy**:
+
+| Tier | Source | Trigger |
+|------|--------|---------|
+| 1 | **timeapi.io** `GET /api/time/current/zone?timeZone=Asia%2FBangkok` | Always try first |
+| 2 | **SQLite `app_meta`** key `last_known_date` | After ≥ 3 consecutive API failures |
+| 3 | **Host clock** `datetime.now(ZoneInfo("Asia/Bangkok"))` | Last resort (may drift) |
+
+Every successful Tier-1 fetch persists the date to `app_meta` so Tier-2 has fresh data.
+Cache TTL is 60 seconds (in-memory).
 
 **Never use `date.today()` directly** — always call `get_current_date()` from `services.date_service`.
+
+---
+
+## Daily new-word quota system
+
+Implemented in `StudyCard` (Dashboard.jsx) + `_progress_stats()` (stats.py).
+
+| Threshold | Behaviour |
+|-----------|-----------|
+| `new_today < 5` | ✅ Learn New Words button active (blue) |
+| `5 ≤ new_today < 10` | ⚠️ Button active but quota bar turns amber + warning text |
+| `new_today ≥ 10` | 🛑 Button disabled — "Daily limit reached" |
+| `due_today > 0` | ⏰ Button disabled — "Clear X due words first" |
+
+**Rule**: user must clear all due reviews (`due_today = 0`) before learning new words.
+This prevents the review backlog from compounding.
+
+---
+
+## Review session — continues until due_today = 0
+
+`Session.jsx` fetches words in batches of 20 (backend limit). After each batch:
+- Fetches `/api/stats` to check `due_today`
+- If `due_today > 0` → shows **BatchDone** interstitial (batch scores + remaining count + "Continue" button)
+- If `due_today = 0` → shows **SessionComplete** screen with cumulative totals
+
+Scores accumulate across batches (`totalScores` / `totalWords` state).
+
+---
+
+## Dashboard — clickable Memory Breakdown
+
+Cards in the **Memory Breakdown** section and **Words Introduced** stat card are clickable.
+Clicking opens a `WordListModal` that fetches `/api/word-list?category=X` and displays:
+- Word, POS, CEFR level, next review date
+- Search bar to filter the list
+- Footer note explaining the category criteria
 
 ---
 
@@ -154,6 +251,7 @@ skip the network entirely. Multi-word phrases fall back to the first token on 40
 - `@login_required` decorator in `models/auth.py` — redirects to `/login` if not authenticated
 - Session lifetime: 30 days (permanent session)
 - Secret key: loaded from env var `SECRET_KEY` (production) or `.secret_key` file (dev)
+- Only `is_admin = 1` users can trigger `/import-data`
 
 ---
 
@@ -164,7 +262,7 @@ App name : oxford-vocab-tn
 Region   : sin (Singapore — closest to Thailand)
 Machine  : shared-cpu-1x, 256 MB RAM
 Volume   : vocab_data mounted at /data (DB_PATH=/data/vocab_app.db)
-Port     : 8000 (gunicorn, 2 workers)
+Port     : 8000 (gunicorn, 1 worker)
 ```
 
 Useful commands:
@@ -220,3 +318,9 @@ The `.secret_key` file is auto-created on first run — do not commit it.
 
 6. **Streak logic** — streak increments only if `last_activity_date == yesterday`.
    If already updated today, the row is left unchanged. Any gap resets streak to 1.
+
+7. **`new_today` counting** — counts `progress` rows where `created_at = today AND repetitions = 1`.
+   Existing rows migrated before this feature have `created_at = '2000-01-01'` as a placeholder.
+
+8. **`app_meta` table** — generic key-value store. Currently only one key: `last_known_date`
+   (written by `date_service._save_db_date()`, read by `_load_db_date()`).
