@@ -564,6 +564,67 @@ function ReviewCard({ word: w, onRate }) {
   )
 }
 
+// ── Batch Done Screen (between batches — more words still due) ───────────────
+function BatchDone({ batchScores, batchWords, totalScores, totalWords, dueRemaining, onContinue, onBack }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-6"
+         style={{ background: 'linear-gradient(135deg,#eff6ff,#f0fdf4)' }}>
+      <div className="bg-white rounded-2xl shadow-lg p-8 text-center max-w-md w-full animate-slideUp">
+        <div className="text-5xl mb-3 select-none">✅</div>
+        <h2 className="text-xl font-bold text-gray-800 mb-1">Batch Complete!</h2>
+        <p className="text-gray-500 text-sm mb-6">
+          {batchWords} words done · {dueRemaining} more still due today
+        </p>
+
+        {/* Batch score badges */}
+        <div className="flex justify-center gap-6 mb-6">
+          <div>
+            <p className="text-3xl font-extrabold text-emerald-600">{batchScores.correct}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Correct</p>
+          </div>
+          <div>
+            <p className="text-3xl font-extrabold text-yellow-500">{batchScores.struggled}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Struggled</p>
+          </div>
+          <div>
+            <p className="text-3xl font-extrabold text-red-500">{batchScores.forgot}</p>
+            <p className="text-xs text-gray-400 mt-0.5">Forgot</p>
+          </div>
+        </div>
+
+        {/* Overall progress so far */}
+        <div className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 mb-6 text-sm text-blue-700">
+          Total this session: <strong>{totalWords}</strong> words reviewed
+          &nbsp;·&nbsp;
+          <strong>{totalScores.correct}</strong> correct
+        </div>
+
+        {/* Due remaining pill */}
+        <div className="flex items-center justify-center gap-2 mb-7">
+          <span className="text-2xl select-none">⏰</span>
+          <span className="text-base font-bold text-orange-500">{dueRemaining} words still due</span>
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <button onClick={onContinue}
+                  className="bg-emerald-600 hover:bg-emerald-700 active:scale-95
+                             text-white font-semibold px-8 py-3 rounded-xl
+                             shadow-md transition-all duration-150 cursor-pointer">
+            Continue Reviewing →
+          </button>
+          <button onClick={onBack}
+                  className="bg-gray-100 hover:bg-gray-200 active:scale-95
+                             text-gray-600 font-semibold px-8 py-3 rounded-xl
+                             transition-all duration-150 cursor-pointer">
+            ← Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Session Complete Screen ───────────────────────────────────────────────────
 function SessionComplete({ scores, totalWords, sessionType, postStats, onBack, onAnother }) {
   return (
@@ -571,9 +632,9 @@ function SessionComplete({ scores, totalWords, sessionType, postStats, onBack, o
          style={{ background: 'linear-gradient(135deg,#eff6ff,#f0fdf4)' }}>
       <div className="bg-white rounded-2xl shadow-lg p-10 text-center max-w-md w-full animate-slideUp">
         <div className="text-6xl mb-4 select-none">🎉</div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">Session Complete!</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-2">All Done!</h2>
         <p className="text-gray-500 text-sm mb-8">
-          You reviewed {totalWords} word{totalWords !== 1 ? 's' : ''} in this session.
+          You reviewed {totalWords} word{totalWords !== 1 ? 's' : ''} — nothing left due today! 🌟
         </p>
 
         {/* Score badges */}
@@ -600,12 +661,14 @@ function SessionComplete({ scores, totalWords, sessionType, postStats, onBack, o
                              transition-all duration-150 cursor-pointer">
             ← Back to Dashboard
           </button>
-          <button onClick={onAnother}
-                  className="bg-gray-100 hover:bg-gray-200 active:scale-95
-                             text-gray-700 font-semibold px-8 py-3 rounded-xl
-                             transition-all duration-150 cursor-pointer">
-            {sessionType === 'new' ? 'Learn More New Words' : 'Review More Words'}
-          </button>
+          {sessionType === 'new' && (
+            <button onClick={onAnother}
+                    className="bg-gray-100 hover:bg-gray-200 active:scale-95
+                               text-gray-700 font-semibold px-8 py-3 rounded-xl
+                               transition-all duration-150 cursor-pointer">
+              Learn More New Words
+            </button>
+          )}
         </div>
 
         {/* Live stats footer */}
@@ -625,13 +688,17 @@ function SessionComplete({ scores, totalWords, sessionType, postStats, onBack, o
 
 // ── Main Session Component ────────────────────────────────────────────────────
 export default function Session({ type, level, onBack }) {
-  // 'loading' | 'card' | 'empty' | 'complete'
-  const [phase,     setPhase]     = useState('loading')
-  const [words,     setWords]     = useState([])
-  const [idx,       setIdx]       = useState(0)
-  const [scores,    setScores]    = useState({ correct: 0, struggled: 0, forgot: 0 })
-  const [postStats, setPostStats] = useState(null)
-  const [cardKey,   setCardKey]   = useState(0)  // forces card remount on each new word
+  // 'loading' | 'card' | 'empty' | 'batch-done' | 'complete'
+  const [phase,        setPhase]        = useState('loading')
+  const [words,        setWords]        = useState([])
+  const [idx,          setIdx]          = useState(0)
+  // Per-batch scores (reset each batch)
+  const [scores,       setScores]       = useState({ correct: 0, struggled: 0, forgot: 0 })
+  // Accumulated totals across all batches this session
+  const [totalScores,  setTotalScores]  = useState({ correct: 0, struggled: 0, forgot: 0 })
+  const [totalWords,   setTotalWords]   = useState(0)
+  const [postStats,    setPostStats]    = useState(null)
+  const [cardKey,      setCardKey]      = useState(0)
 
   function buildUrl(t, l) {
     if (t === 'review') return '/api/review-session'
@@ -640,7 +707,7 @@ export default function Session({ type, level, onBack }) {
       : '/api/new-session'
   }
 
-  async function loadWords(t, l) {
+  async function loadWords(t, l, keepTotals = false) {
     setPhase('loading')
     try {
       const data = await fetch(buildUrl(t, l)).then(r => r.json())
@@ -650,6 +717,10 @@ export default function Session({ type, level, onBack }) {
         setWords(data.words)
         setIdx(0)
         setScores({ correct: 0, struggled: 0, forgot: 0 })
+        if (!keepTotals) {
+          setTotalScores({ correct: 0, struggled: 0, forgot: 0 })
+          setTotalWords(0)
+        }
         setCardKey(k => k + 1)
         setPhase('card')
       }
@@ -668,15 +739,39 @@ export default function Session({ type, level, onBack }) {
     else                    s.forgot++
     setScores(s)
 
+    const newTotal = {
+      correct:   totalScores.correct   + (quality >= 4  ? 1 : 0),
+      struggled: totalScores.struggled + (quality === 3 ? 1 : 0),
+      forgot:    totalScores.forgot    + (quality <  3  ? 1 : 0),
+    }
+    const newTotalWords = totalWords + 1
+    setTotalScores(newTotal)
+    setTotalWords(newTotalWords)
+
     if (idx + 1 >= words.length) {
-      // All words done — fetch final stats then show complete screen
+      // Batch done — check how many words are still due
       window.speechSynthesis?.cancel()
-      fetch('/api/stats').then(r => r.json()).then(setPostStats).catch(() => {})
-      setPhase('complete')
+      fetch('/api/stats')
+        .then(r => r.json())
+        .then(stats => {
+          setPostStats(stats)
+          if (type === 'review' && (stats.due_today ?? 0) > 0) {
+            // More words still due — show batch-done interstitial
+            setPhase('batch-done')
+          } else {
+            setPhase('complete')
+          }
+        })
+        .catch(() => setPhase('complete'))
     } else {
       setIdx(i => i + 1)
       setCardKey(k => k + 1)
     }
+  }
+
+  function handleContinueBatch() {
+    setPostStats(null)
+    loadWords(type, level, true)   // keepTotals = true
   }
 
   function handleAnother() {
@@ -734,12 +829,27 @@ export default function Session({ type, level, onBack }) {
     )
   }
 
-  // ── Session complete ───────────────────────────────────────────────────────
+  // ── Batch done (more words still due) ─────────────────────────────────────
+  if (phase === 'batch-done') {
+    return (
+      <BatchDone
+        batchScores={scores}
+        batchWords={words.length}
+        totalScores={totalScores}
+        totalWords={totalWords}
+        dueRemaining={postStats?.due_today ?? 0}
+        onContinue={handleContinueBatch}
+        onBack={onBack}
+      />
+    )
+  }
+
+  // ── Session complete (due_today = 0) ──────────────────────────────────────
   if (phase === 'complete') {
     return (
       <SessionComplete
-        scores={scores}
-        totalWords={words.length}
+        scores={totalScores}
+        totalWords={totalWords}
         sessionType={type}
         postStats={postStats}
         onBack={onBack}
