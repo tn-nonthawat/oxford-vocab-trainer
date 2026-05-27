@@ -1,0 +1,42 @@
+{#
+  base.html  –  Base template for Flask-rendered pages (login / register).
+  The React dashboard (/) is served as a static SPA and does NOT use this template.
+
+  Blocks
+  -------
+    title       : <title> content
+    body_class  : classes on <body>
+    header      : navbar area (empty on auth pages)
+    main_class  : classes on <main>
+    content     : page body
+    js_file     : optional <script> tag
+#}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Oxford 3000 Vocabulary Trainer{% endblock %}</title>
+
+  <!-- Tailwind CSS (CDN — auth pages only; React SPA uses its own build) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+  </style>
+</head>
+
+<body class="{% block body_class %}min-h-screen bg-gray-50{% endblock %}"
+      style="background: linear-gradient(135deg, #eff6ff 0%, #f0fdf4 100%);">
+
+  {% block header %}{% endblock %}
+
+  <main class="{% block main_class %}{% endblock %}">
+    {% block content %}{% endblock %}
+  </main>
+
+  {% block js_file %}{% endblock %}
+
+</body>
+</html>
