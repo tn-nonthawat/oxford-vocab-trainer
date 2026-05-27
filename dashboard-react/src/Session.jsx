@@ -123,34 +123,32 @@ function speakWord(word) {
   _speakText(word)
 }
 
-/** Speak word + meaning + example sentence in sequence */
+/** Speak word → meaning → example in sequence via onend chaining.
+ *  (Queuing multiple speak() calls at once is unreliable in Chrome.) */
 function speakFull(word, meaning, example) {
   if (!window.speechSynthesis) return
   window.speechSynthesis.cancel()
 
   const voices = window.speechSynthesis.getVoices()
   if (voices.length) _ttsVoices = voices
-
   const voice = _pickEnglishVoice(_ttsVoices)
 
-  function makeUtter(text, rate = 0.85) {
-    const u = new SpeechSynthesisUtterance(text)
-    u.lang = 'en-US'
-    u.rate = rate
+  const parts = [word, meaning, example].filter(Boolean)
+  let index = 0
+
+  function speakNext() {
+    if (index >= parts.length) return
+    const u = new SpeechSynthesisUtterance(parts[index])
+    u.lang  = 'en-US'
+    u.rate  = index === 0 ? 0.80 : 0.90
     if (voice) u.voice = voice
-    return u
+    u.onend = () => { index++; speakNext() }
+    index++
+    window.speechSynthesis.speak(u)
   }
 
-  // Queue: word → pause → meaning → pause → example
-  const parts = [word]
-  if (meaning)  parts.push(meaning)
-  if (example)  parts.push(example)
-
-  // Speak each part — browser queues utterances automatically
-  parts.forEach((text, i) => {
-    const u = makeUtter(text, i === 0 ? 0.80 : 0.90)
-    window.speechSynthesis.speak(u)
-  })
+  // Small delay after cancel() so browser is ready
+  setTimeout(speakNext, 80)
 }
 
 // ── Thai Note ─────────────────────────────────────────────────────────────────
