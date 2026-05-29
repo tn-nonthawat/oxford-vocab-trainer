@@ -42,7 +42,10 @@ session_bp = Blueprint("session", __name__)
 @login_required
 def index():
     """Serve the React SPA shell.  Auth is checked here; /api/* checks it again."""
-    return send_from_directory(_REACT_DIR, "index.html")
+    resp = send_from_directory(_REACT_DIR, "index.html")
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 
 @session_bp.route("/assets/<path:filename>")

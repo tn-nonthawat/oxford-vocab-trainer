@@ -102,7 +102,7 @@ const DEFAULT_LAYOUTS = {
     { i: 'stat-due',     x: 0, y: 6,  w: 4, h: 3  },
     { i: 'stat-streak',  x: 0, y: 9,  w: 4, h: 3  },
     { i: 'dist-progress',x: 0, y: 12, w: 4, h: 11 },
-    { i: 'study',        x: 0, y: 23, w: 4, h: 9  },
+    { i: 'study',        x: 0, y: 23, w: 4, h: 8  },
   ],
 }
 
@@ -123,6 +123,9 @@ function loadLayouts(username) {
           // Migrate dist-progress height on mobile (added Mastery Rate + Words Left)
           if (item.i === 'dist-progress' && bp === 'sm' && item.h < 11)
             return { ...item, h: 11 }
+          // Force study card to correct height on mobile (h=8 fits content snugly)
+          if (item.i === 'study' && bp === 'sm')
+            return { ...item, h: 8 }
           return item
         })
       }
@@ -802,8 +805,8 @@ function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onT
   const quotaPct      = Math.min(100, Math.round(newToday / QUOTA_HARD * 100))
 
   return (
-    <Card>
-      <div className="flex flex-col h-full gap-3">
+    <Card className="!overflow-auto">
+      <div className="flex flex-col gap-3 sm:h-full">
 
         {/* Header */}
         <p className="text-lg font-semibold text-gray-700 select-none shrink-0">
@@ -867,14 +870,14 @@ function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onT
         </div>
 
         {/* ── Action buttons ──────────────────────────────────────────────── */}
-        <div className="flex flex-col gap-3 flex-1 min-h-0">
+        <div className="flex flex-col gap-3 sm:flex-1">
 
           {/* Learn New Words */}
           <button
             onClick={handleLearnClick}
             className={[
-              'no-drag group flex items-center gap-4 rounded-2xl shadow-lg p-5',
-              'transition-all duration-200 text-left w-full h-full',
+              'no-drag group flex items-center gap-4 rounded-2xl shadow-lg p-4',
+              'transition-all duration-200 text-left w-full min-h-[96px] sm:min-h-0 sm:h-full',
               canLearnNew
                 ? 'bg-blue-600 hover:bg-blue-700 active:scale-95 text-white cursor-pointer'
                 : 'bg-gray-200 text-gray-400 cursor-pointer',
@@ -906,8 +909,8 @@ function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onT
           <button
             onClick={handleReviewClick}
             className={[
-              'no-drag group flex items-center gap-4 text-white rounded-2xl shadow-lg p-5',
-              'transition-all duration-200 text-left w-full h-full cursor-pointer',
+              'no-drag group flex items-center gap-4 text-white rounded-2xl shadow-lg p-4',
+              'transition-all duration-200 text-left w-full min-h-[96px] sm:min-h-0 sm:h-full cursor-pointer',
               hasDue
                 ? 'bg-emerald-600 hover:bg-emerald-700 active:scale-95'
                 : 'bg-gray-400 hover:bg-gray-500 active:scale-95',

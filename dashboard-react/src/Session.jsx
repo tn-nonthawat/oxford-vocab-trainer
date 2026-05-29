@@ -473,8 +473,8 @@ function ReviewCard({ word: w, onRate }) {
         <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
           {w.pos}
         </span>
-        <button onClick={() => speakFull(w.word, meaning, example)}
-                title="Read word + meaning + example"
+        <button onClick={() => speakWord(w.word)}
+                title="Read word"
                 className="ml-auto flex items-center justify-center w-9 h-9
                            rounded-full bg-blue-50 hover:bg-blue-100 active:scale-90
                            border border-blue-100 text-lg shadow-sm
