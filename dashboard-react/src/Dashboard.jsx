@@ -11,9 +11,9 @@
  *  • Loading screen       — spinner while the first fetch is in-flight
  *  • Error screen         — friendly message + retry button on network failure
  *  • CEFR filter          — pill buttons in "Start Studying" card; selection
- *                           is persisted to localStorage and affects the
+ *                           is persisted via /api/preferences and affects the
  *                           "words remaining" label on the Learn New Words btn
- *  • Draggable layout     — react-grid-layout; positions saved to localStorage
+ *  • Draggable layout     — react-grid-layout; positions saved via /api/preferences
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
@@ -25,11 +25,6 @@ import 'react-resizable/css/styles.css'
 // ─────────────────────────────────────────────────────────────────────────────
 //  CONSTANTS
 // ─────────────────────────────────────────────────────────────────────────────
-// Per-user localStorage keys — prefixed with username so each account
-// has its own layout, hidden cards, and CEFR filter.
-const lsLayoutKey = (u) => `oxv:layout:${u}`
-const lsHiddenKey = (u) => `oxv:hidden:${u}`
-const lsCefrKey   = (u) => `oxv:cefr:${u}`
 
 // ── Card display metadata (used in Add/Remove UI) ─────────────────────────────
 const CARD_META = {
@@ -107,50 +102,57 @@ const DEFAULT_LAYOUTS = {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-//  LAYOUT PERSISTENCE HELPERS
+//  LAYOUT HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
-function loadLayouts(username) {
-  try {
-    const raw = localStorage.getItem(lsLayoutKey(username))
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      // Sanitize + auto-migrate
-      const result = {}
-      for (const bp of ['lg', 'md', 'sm']) {
-        const items = (parsed[bp] ?? []).filter(item => item && item.i)
-        if (items.length === 0) { result[bp] = DEFAULT_LAYOUTS[bp]; continue }
-        result[bp] = items.map(item => {
-          // Migrate dist-progress height on mobile (added Mastery Rate + Words Left)
-          if (item.i === 'dist-progress' && bp === 'sm' && item.h < 11)
-            return { ...item, h: 11 }
-          // Force study card to correct height on mobile (h=8 fits content snugly)
-          if (item.i === 'study' && bp === 'sm')
-            return { ...item, h: 8 }
-          return item
-        })
-      }
-      return result
-    }
-  } catch (_) {}
-  return DEFAULT_LAYOUTS
+function sanitizeLayouts(parsed) {
+  if (!parsed || typeof parsed !== 'object') return DEFAULT_LAYOUTS
+  const result = {}
+  for (const bp of ['lg', 'md', 'sm']) {
+    const items = (parsed[bp] ?? []).filter(item => item && item.i)
+    if (items.length === 0) { result[bp] = DEFAULT_LAYOUTS[bp]; continue }
+    result[bp] = items.map(item => {
+      if (item.i === 'dist-progress' && bp === 'sm' && item.h < 11)
+        return { ...item, h: 11 }
+      if (item.i === 'study' && bp === 'sm')
+        return { ...item, h: 8 }
+      return item
+    })
+  }
+  return result
 }
 
-function saveLayouts(username, layouts) {
-  if (!username) return
-  try { localStorage.setItem(lsLayoutKey(username), JSON.stringify(layouts)) } catch (_) {}
-}
+// ─────────────────────────────────────────────────────────────────────────────
+//  usePreferences  — load/save layout, hidden cards, CEFR filter via API
+// ─────────────────────────────────────────────────────────────────────────────
+function usePreferences() {
+  const [prefs, setPrefs] = useState(null)   // null = still loading
+  const pendingRef = useRef({})
+  const timerRef   = useRef(null)
 
-function loadHidden(username) {
-  try {
-    const raw = localStorage.getItem(lsHiddenKey(username))
-    if (raw) return new Set(JSON.parse(raw))
-  } catch (_) {}
-  return new Set()
-}
+  useEffect(() => {
+    fetch('/api/preferences', { credentials: 'include' })
+      .then(r => r.ok ? r.json() : {})
+      .then(data => setPrefs(data))
+      .catch(() => setPrefs({}))
+  }, [])
 
-function saveHidden(username, set) {
-  if (!username) return
-  try { localStorage.setItem(lsHiddenKey(username), JSON.stringify([...set])) } catch (_) {}
+  const save = useCallback((patch) => {
+    Object.assign(pendingRef.current, patch)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      const body = { ...pendingRef.current }
+      pendingRef.current = {}
+      fetch('/api/preferences', {
+        method : 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify(body),
+      }).catch(() => {})
+    }, 800)
+  }, [])
+
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  return { prefs, save }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -740,24 +742,18 @@ function DistProgressCard({ levelCounts, total, progress, mastery, onCategoryCli
 // ─────────────────────────────────────────────────────────────────────────────
 //  STUDY CARD  — CEFR filter + action buttons
 //
-//  The selected CEFR level is stored in localStorage under LS_CEFR_KEY so it
-//  persists across page reloads.  It gates the "Learn New Words" button: the
+//  The selected CEFR level is passed as a prop (persisted via /api/preferences).
+//  It gates the "Learn New Words" button: the
 //  remaining-words label updates to reflect the chosen level, and when the
 //  button is clicked the /api/new-session endpoint is called with ?level=X.
 // ─────────────────────────────────────────────────────────────────────────────
 const QUOTA_SOFT = 5   // recommended daily new words
 const QUOTA_HARD = 10  // hard cap (still allows, but warns strongly)
 
-function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onToast, username }) {
-  // ── Initialise filter from user-specific localStorage key ──────────────────
-  const [cefrFilter, setCefrFilter] = useState(() => {
-    try { return localStorage.getItem(lsCefrKey(username)) || 'All' } catch { return 'All' }
-  })
-
+function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onToast, cefrFilter, onCefrChange }) {
   const handleFilterChange = useCallback((level) => {
-    setCefrFilter(level)
-    try { localStorage.setItem(lsCefrKey(username), level) } catch {}
-  }, [username])
+    onCefrChange(level)
+  }, [onCefrChange])
 
   // ── Derive remaining words for the active filter ───────────────────────────
   // 'All'  → total words in DB minus what the user has already introduced
@@ -1185,8 +1181,9 @@ export default function Dashboard({ onStartSession }) {
   const rowH   = width < 640 ? 38 : 44
   const margin = [12, 12]
 
-  // ── Per-user ref — updated once API returns username ─────────────────────
-  const usernameRef = useRef('')
+  // ── Preferences (layout / hidden / CEFR) persisted via API ──────────────
+  const { prefs, save: savePrefs } = usePreferences()
+  const [cefrFilter, setCefrFilter] = useState('All')
 
   // ── Edit-mode toggle (must click to enable dragging) ──────────────────────
   const [editMode, setEditMode] = useState(false)
@@ -1224,34 +1221,33 @@ export default function Dashboard({ onStartSession }) {
     setLayouts(prev => {
       const key  = width < 640 ? 'sm' : width < 1024 ? 'md' : 'lg'
       const next = { ...prev, [key]: newLayout }
-      saveLayouts(usernameRef.current, next)
+      savePrefs({ layout: next })
       return next
     })
-  }, [width])
+  }, [width, savePrefs])
 
   const handleReset = useCallback(() => {
     setLayouts(DEFAULT_LAYOUTS)
-    saveLayouts(usernameRef.current, DEFAULT_LAYOUTS)
     const empty = new Set()
     setHiddenCards(empty)
-    saveHidden(usernameRef.current, empty)
-  }, [])
+    savePrefs({ layout: DEFAULT_LAYOUTS, hidden: [] })
+  }, [savePrefs])
 
   // ── Hide / show card ────────────────────────────────────────────────────────
   const handleHideCard = useCallback((cardId) => {
     setHiddenCards(prev => {
       const next = new Set(prev)
       next.add(cardId)
-      saveHidden(usernameRef.current, next)
+      savePrefs({ hidden: [...next] })
       return next
     })
-  }, [])
+  }, [savePrefs])
 
   const handleShowCard = useCallback((cardId) => {
     setHiddenCards(prev => {
       const next = new Set(prev)
       next.delete(cardId)
-      saveHidden(usernameRef.current, next)
+      savePrefs({ hidden: [...next] })
       return next
     })
     setLayouts(prev => {
@@ -1270,22 +1266,28 @@ export default function Dashboard({ onStartSession }) {
           updated[bp]   = [...bpLayout, newItem]
         }
       }
-      saveLayouts(usernameRef.current, updated)
+      savePrefs({ layout: updated })
       return updated
     })
-  }, [])
+  }, [savePrefs])
 
   // ── API data ───────────────────────────────────────────────────────────────
   const { data, loading, error, refetch } = useDashboardStats()
 
-  // ── Load per-user layout/hidden once username is known ─────────────────────
+  // ── Apply preferences once loaded from API ────────────────────────────────
+  const prefApplied = useRef(false)
   useEffect(() => {
-    const u = data?.username
-    if (!u) return
-    usernameRef.current = u
-    setLayouts(loadLayouts(u))
-    setHiddenCards(loadHidden(u))
-  }, [data?.username])
+    if (!prefs || prefApplied.current) return
+    prefApplied.current = true
+    if (prefs.layout) setLayouts(sanitizeLayouts(prefs.layout))
+    if (prefs.hidden) setHiddenCards(new Set(prefs.hidden))
+    if (prefs.cefr)   setCefrFilter(prefs.cefr)
+  }, [prefs])
+
+  const handleCefrChange = useCallback((level) => {
+    setCefrFilter(level)
+    savePrefs({ cefr: level })
+  }, [savePrefs])
 
   // ── Word list modal (Memory Breakdown cards) ──────────────────────────────
   const [wordListCategory, setWordListCategory] = useState(null) // 'mastered'|'learning'|'struggling'|null
@@ -1445,7 +1447,7 @@ export default function Dashboard({ onStartSession }) {
                      label="study streak" valueClass="text-orange-500" />,
     'stats':       <StatsCard progress={progress} streak={streak} />,
     'dist-progress': <DistProgressCard levelCounts={levelCounts} total={total} progress={progress} mastery={mastery} onCategoryClick={setWordListCategory} />,
-    'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} newToday={newToday} onStartSession={onStartSession} onToast={setToast} username={username} />,
+    'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} newToday={newToday} onStartSession={onStartSession} onToast={setToast} cefrFilter={cefrFilter} onCefrChange={handleCefrChange} />,
   }
 
   return (

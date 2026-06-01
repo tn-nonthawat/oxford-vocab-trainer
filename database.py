@@ -118,6 +118,27 @@ def init_db() -> None:
         )
     """)
 
+    # ── Per-user word notes (Thai translations / personal annotations) ────────
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS word_notes (
+            user_id INTEGER NOT NULL,
+            word_id INTEGER NOT NULL,
+            note    TEXT    NOT NULL DEFAULT '',
+            PRIMARY KEY (user_id, word_id),
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (word_id) REFERENCES words (id)
+        )
+    """)
+
+    # ── Per-user dashboard preferences (layout, hidden cards, CEFR filter) ───
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS user_preferences (
+            user_id    INTEGER PRIMARY KEY,
+            prefs_json TEXT    NOT NULL DEFAULT '{}',
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    """)
+
     conn.commit()
     conn.close()
 

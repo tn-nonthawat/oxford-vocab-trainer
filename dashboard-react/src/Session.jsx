@@ -147,17 +147,26 @@ function speakFull(word, meaning, example) {
 }
 
 // ── Thai Note ─────────────────────────────────────────────────────────────────
-function ThaiNote({ wordId }) {
-  const key = `thai_note_${wordId}`
-  const [note, setNote] = useState(() => localStorage.getItem(key) || '')
+function ThaiNote({ wordId, initialNote = '' }) {
+  const [note, setNote] = useState(initialNote)
+  const timerRef = useRef(null)
 
   const MAX = 120
 
   function handleChange(e) {
     const val = e.target.value.slice(0, MAX)
     setNote(val)
-    localStorage.setItem(key, val)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      fetch(`/api/word-note/${wordId}`, {
+        method : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body   : JSON.stringify({ note: val }),
+      }).catch(() => {})
+    }, 600)
   }
+
+  useEffect(() => () => clearTimeout(timerRef.current), [])
 
   return (
     <div className="mt-4 rounded-xl border-2 border-yellow-200 bg-yellow-50 px-4 py-3">
@@ -358,7 +367,7 @@ function NewWordCard({ word: w, onRate }) {
             {example && (
               <p className="text-gray-500 text-sm italic leading-relaxed">"{example}"</p>
             )}
-            <ThaiNote wordId={w.id} />
+            <ThaiNote wordId={w.id} initialNote="" />
             <p className="text-center text-xs text-gray-300 mt-auto pt-4">
               — Rate your recall below —
             </p>
@@ -569,7 +578,7 @@ function ReviewCard({ word: w, onRate }) {
         )}
 
         {/* Thai note — shown after answer is checked */}
-        {checkResult && <ThaiNote wordId={w.id} />}
+        {checkResult && <ThaiNote wordId={w.id} initialNote={w.user_note || ''} />}
       </div>
 
       {/* Rating buttons — appear after Check */}

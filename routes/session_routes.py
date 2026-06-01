@@ -5,6 +5,7 @@ Blueprint name : "session"
 URL prefix     : (none — routes mount at /, /api/*, /import-*)
 """
 
+import json
 import logging
 import os
 
@@ -136,9 +137,11 @@ def api_review_session():
         SELECT w.id, w.word, w.pos, w.cefr_level,
                w.meaning, w.example_sentence,
                p.interval, p.easiness_factor,
-               p.repetitions, p.next_review_date
+               p.repetitions, p.next_review_date,
+               COALESCE(n.note, '') AS user_note
         FROM   words w
         JOIN   progress p ON w.id = p.word_id
+        LEFT JOIN word_notes n ON n.word_id = w.id AND n.user_id = p.user_id
         WHERE  p.user_id = ?
           AND  p.next_review_date <= ?
         ORDER  BY p.next_review_date ASC
@@ -339,3 +342,71 @@ def api_word_meaning(word_id: int):
         "example_sentence": example,
         "cached"          : False,
     })
+
+
+@session_bp.route("/api/word-note/<int:word_id>", methods=["GET"])
+@login_required
+def api_get_word_note(word_id: int):
+    user_id = session["user_id"]
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute("SELECT note FROM word_notes WHERE user_id = ? AND word_id = ?",
+                (user_id, word_id))
+    row = cur.fetchone()
+    conn.close()
+    return jsonify({"note": row["note"] if row else ""})
+
+
+@session_bp.route("/api/word-note/<int:word_id>", methods=["POST"])
+@login_required
+@limiter.limit("120 per minute")
+def api_save_word_note(word_id: int):
+    user_id = session["user_id"]
+    data    = request.get_json(force=True) or {}
+    note    = str(data.get("note", ""))[:200]
+    conn    = get_connection()
+    cur     = conn.cursor()
+    if note:
+        cur.execute("""
+            INSERT INTO word_notes (user_id, word_id, note) VALUES (?, ?, ?)
+            ON CONFLICT(user_id, word_id) DO UPDATE SET note = excluded.note
+        """, (user_id, word_id, note))
+    else:
+        cur.execute("DELETE FROM word_notes WHERE user_id = ? AND word_id = ?",
+                    (user_id, word_id))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@session_bp.route("/api/preferences", methods=["GET"])
+@login_required
+def api_get_preferences():
+    user_id = session["user_id"]
+    conn    = get_connection()
+    cur     = conn.cursor()
+    cur.execute("SELECT prefs_json FROM user_preferences WHERE user_id = ?", (user_id,))
+    row  = cur.fetchone()
+    conn.close()
+    return jsonify(json.loads(row["prefs_json"]) if row else {})
+
+
+@session_bp.route("/api/preferences", methods=["PUT"])
+@login_required
+@limiter.limit("60 per minute")
+def api_save_preferences():
+    user_id  = session["user_id"]
+    incoming = request.get_json(force=True) or {}
+    conn     = get_connection()
+    cur      = conn.cursor()
+    cur.execute("SELECT prefs_json FROM user_preferences WHERE user_id = ?", (user_id,))
+    row      = cur.fetchone()
+    existing = json.loads(row["prefs_json"]) if row else {}
+    existing.update(incoming)
+    cur.execute("""
+        INSERT INTO user_preferences (user_id, prefs_json) VALUES (?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET prefs_json = excluded.prefs_json
+    """, (user_id, json.dumps(existing)))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
