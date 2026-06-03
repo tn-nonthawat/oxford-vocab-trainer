@@ -750,7 +750,7 @@ function DistProgressCard({ levelCounts, total, progress, mastery, onCategoryCli
 const QUOTA_SOFT = 5   // recommended daily new words
 const QUOTA_HARD = 10  // hard cap (still allows, but warns strongly)
 
-function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onToast, cefrFilter, onCefrChange }) {
+function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onStartGame, onToast, cefrFilter, onCefrChange }) {
   const handleFilterChange = useCallback((level) => {
     onCefrChange(level)
   }, [onCefrChange])
@@ -922,6 +922,26 @@ function StudyCard({ progress, total, levelCounts, newToday, onStartSession, onT
                 {hasDue
                   ? `${progress.due_today.toLocaleString()} words due today`
                   : 'Nothing due – great job! 🎉'}
+              </p>
+            </div>
+          </button>
+
+          {/* Boss Battle */}
+          <button
+            onClick={onStartGame}
+            className="no-drag group flex items-center gap-4 text-white rounded-2xl shadow-lg p-4
+                       transition-all duration-200 text-left w-full min-h-[96px] sm:min-h-0 sm:h-full
+                       cursor-pointer active:scale-95"
+            style={{ background: 'linear-gradient(135deg,#4c1d95,#1e1b4b)' }}
+          >
+            <span className="text-4xl select-none group-hover:scale-110 transition-transform shrink-0">
+              ⚔️
+            </span>
+            <div>
+              <p className="text-base font-bold leading-tight">Boss Battle</p>
+              <p className="text-sm mt-0.5 opacity-70">Fill missing letters · defeat enemies</p>
+              <p className="text-xs mt-1 font-medium opacity-60">
+                Uses words you&apos;ve already learned
               </p>
             </div>
           </button>
@@ -1173,7 +1193,7 @@ function ResetButton({ onReset }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  MAIN DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Dashboard({ onStartSession }) {
+export default function Dashboard({ onStartSession, onStartGame }) {
   const { width } = useWindowSize()
 
   // ── Breakpoints ────────────────────────────────────────────────────────────
@@ -1447,7 +1467,7 @@ export default function Dashboard({ onStartSession }) {
                      label="study streak" valueClass="text-orange-500" />,
     'stats':       <StatsCard progress={progress} streak={streak} />,
     'dist-progress': <DistProgressCard levelCounts={levelCounts} total={total} progress={progress} mastery={mastery} onCategoryClick={setWordListCategory} />,
-    'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} newToday={newToday} onStartSession={onStartSession} onToast={setToast} cefrFilter={cefrFilter} onCefrChange={handleCefrChange} />,
+    'study':       <StudyCard progress={progress} total={total} levelCounts={levelCounts} newToday={newToday} onStartSession={onStartSession} onStartGame={onStartGame} onToast={setToast} cefrFilter={cefrFilter} onCefrChange={handleCefrChange} />,
   }
 
   return (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import Dashboard from './Dashboard.jsx'
 import Session   from './Session.jsx'
+import Game      from './Game.jsx'
 
 /**
  * App.jsx  –  Top-level view router (no URL routing needed — just React state).
@@ -24,12 +25,17 @@ export default function App() {
     )
   }
 
+  if (view === 'game') {
+    return <Game onBack={() => setView('dashboard')} />
+  }
+
   return (
     <Dashboard
       onStartSession={config => {
         setSessionConfig(config)
         setView('session')
       }}
+      onStartGame={() => setView('game')}
     />
   )
 }
