@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react'
+import { playTileTap, playHit, playMiss, playBossAttack, playWaveClear, playGameOver } from './sounds.js'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PLAYER_MAX_HP  = 100
@@ -186,6 +187,10 @@ export default function Game({ onBack }) {
   const [correct, setCorrect] = useState(0)
   const [wrong,   setWrong]   = useState(0)
 
+  const mutedRef = useRef(false)
+  const [muted, setMuted] = useState(false)
+  function sound(fn) { if (!mutedRef.current) fn() }
+
   const boss = BOSSES[Math.min(wave - 1, BOSSES.length - 1)]
 
   // ── Load word pool on mount ──────────────────────────────────────────────
@@ -224,6 +229,7 @@ export default function Game({ onBack }) {
     const tile = tiles.find(t => t.id === tileId)
     if (!tile || tile.used) return
 
+    sound(playTileTap)
     const newFilled = [...filledLetters]
     newFilled[nextSlot] = tile.letter
     setFilledLetters(newFilled)
@@ -247,6 +253,7 @@ export default function Game({ onBack }) {
       const newPlayerHP = Math.min(PLAYER_MAX_HP, curPlayerHP + PLAYER_HEAL)
       setBossHP(newBossHP)
       setPlayerHP(newPlayerHP)
+      sound(playHit)
       setBossFlash(true)
       setTimeout(() => setBossFlash(false), 500)
       setLastResult('correct')
@@ -256,6 +263,7 @@ export default function Game({ onBack }) {
       if (newBossHP <= 0) {
         const nextWave    = curWave + 1
         const nextBoss    = BOSSES[Math.min(nextWave - 1, BOSSES.length - 1)]
+        sound(playWaveClear)
         setMessage(`🎉 ${curBoss.name} defeated! Wave ${nextWave}: ${nextBoss.name} appears!`)
         setTimeout(() => {
           setWave(nextWave)
@@ -268,6 +276,7 @@ export default function Game({ onBack }) {
 
       setTimeout(() => bossTurn(newPlayerHP, curWave, curBoss.name), 1400)
     } else {
+      sound(playMiss)
       setLastResult('miss')
       setWrong(w => w + 1)
       setMessage(`❌ Miss! Correct: "${wordStr}"`)
@@ -279,11 +288,13 @@ export default function Game({ onBack }) {
     const dmg   = BOSS_BASE_DMG * curWave
     const newHP = curPlayerHP - dmg
     setPlayerHP(Math.max(0, newHP))
+    sound(playBossAttack)
     setPlayerShake(true)
     setTimeout(() => setPlayerShake(false), 500)
     setMessage(`💥 ${bossName} attacks! -${dmg} HP`)
 
     if (newHP <= 0) {
+      sound(playGameOver)
       setTimeout(() => setPhase('game-over'), 1000)
     } else {
       setTimeout(() => {
@@ -396,12 +407,21 @@ export default function Game({ onBack }) {
          style={{ background: 'linear-gradient(135deg,#0f0c29,#302b63,#24243e)' }}>
       <div className="max-w-lg mx-auto">
 
-        {/* Back */}
-        <button onClick={onBack}
-                className="flex items-center gap-1.5 text-gray-500 hover:text-gray-300
-                           text-sm mb-4 transition-colors cursor-pointer select-none">
-          ← Dashboard
-        </button>
+        {/* Back + mute */}
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={onBack}
+                  className="flex items-center gap-1.5 text-gray-500 hover:text-gray-300
+                             text-sm transition-colors cursor-pointer select-none">
+            ← Dashboard
+          </button>
+          <button
+            onClick={() => { mutedRef.current = !mutedRef.current; setMuted(m => !m) }}
+            className="text-xl select-none cursor-pointer opacity-60 hover:opacity-100 transition-opacity"
+            title={muted ? 'Unmute' : 'Mute'}
+          >
+            {muted ? '🔇' : '🔊'}
+          </button>
+        </div>
 
         {/* Wave badge */}
         <div className="text-center mb-3">
