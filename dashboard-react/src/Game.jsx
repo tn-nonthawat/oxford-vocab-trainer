@@ -20,7 +20,7 @@ const PLAYER_MAX_HP  = 100
 const PLAYER_DAMAGE  = 20   // damage dealt to boss on correct answer
 const PLAYER_HEAL    = 5    // HP healed on correct answer
 const BOSS_BASE_HP   = 100  // boss HP = BOSS_BASE_HP × wave
-const BOSS_BASE_DMG  = 10   // boss damage = BOSS_BASE_DMG × wave
+const BOSS_BASE_DMG  = 5    // boss damage = BOSS_BASE_DMG × wave
 
 const BOSSES = [
   { emoji: '🐭', name: 'Rat'    },
