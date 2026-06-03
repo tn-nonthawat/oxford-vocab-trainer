@@ -254,8 +254,8 @@ export default function Game({ onBack }) {
     if (isCorrect) {
       const newStreak = curStreak + 1
       const isCrit    = newStreak >= CRIT_THRESHOLD
-      const dmg       = isCrit ? PLAYER_DAMAGE * CRIT_MULTIPLIER : PLAYER_DAMAGE
-      setStreak(isCrit ? 0 : newStreak)
+      const dmg       = isCrit ? PLAYER_DAMAGE * (newStreak - CRIT_THRESHOLD + CRIT_MULTIPLIER) : PLAYER_DAMAGE
+      setStreak(newStreak)
       const newBossHP   = Math.max(0, curBossHP - dmg)
       const newPlayerHP = Math.min(PLAYER_MAX_HP, curPlayerHP + PLAYER_HEAL)
       setBossHP(newBossHP)
@@ -494,12 +494,12 @@ export default function Game({ onBack }) {
             </span>
             {streak > 0 && (
               <span className={`text-xs px-2 py-0.5 rounded-full font-bold select-none ${
-                streak >= CRIT_THRESHOLD - 1
+                streak >= CRIT_THRESHOLD
                   ? 'text-yellow-300 animate-pulse'
                   : 'text-orange-300'
               }`} style={{ background: 'rgba(120,60,0,0.5)' }}>
-                {streak >= CRIT_THRESHOLD - 1 ? '⚡' : '🔥'} {streak} combo
-                {streak >= CRIT_THRESHOLD - 1 ? ' — CRIT READY!' : ''}
+                {streak >= CRIT_THRESHOLD ? '⚡' : '🔥'} {streak} combo
+                {streak >= CRIT_THRESHOLD ? ` — ×${streak - CRIT_THRESHOLD + CRIT_MULTIPLIER}!` : ''}
               </span>
             )}
           </div>
