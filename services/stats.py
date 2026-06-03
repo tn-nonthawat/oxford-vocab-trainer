@@ -77,11 +77,13 @@ def _progress_stats(user_id: int) -> dict:
 
 def _mastery_stats(user_id: int) -> dict:
     """
-    Classify every progress row into three retention bands.
+    Classify every progress row into three mutually-exclusive retention bands.
 
     Mastered   – repetitions >= 4
-    Learning   – 1 <= repetitions <= 3
-    Struggling – easiness_factor < 1.8   (can overlap with the other bands)
+    Struggling – repetitions < 4  AND  (repetitions = 0 OR easiness_factor < 1.8)
+    Learning   – 1 <= repetitions <= 3  AND  easiness_factor >= 1.8
+
+    The three bands are disjoint and together equal the total introduced count.
     """
     conn = get_connection()
     cur  = conn.cursor()
@@ -95,14 +97,14 @@ def _mastery_stats(user_id: int) -> dict:
 
     cur.execute(
         "SELECT COUNT(*) AS n FROM progress "
-        "WHERE user_id = ? AND repetitions >= 1 AND repetitions <= 3",
+        "WHERE user_id = ? AND repetitions >= 1 AND repetitions <= 3 AND easiness_factor >= 1.8",
         (user_id,),
     )
     learning = cur.fetchone()["n"]
 
     cur.execute(
         "SELECT COUNT(*) AS n FROM progress "
-        "WHERE user_id = ? AND easiness_factor < 1.8",
+        "WHERE user_id = ? AND repetitions < 4 AND (repetitions = 0 OR easiness_factor < 1.8)",
         (user_id,),
     )
     struggling = cur.fetchone()["n"]

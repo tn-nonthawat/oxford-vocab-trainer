@@ -273,9 +273,9 @@ def api_word_list():
     if category == "mastered":
         where = "p.repetitions >= 4"
     elif category == "learning":
-        where = "p.repetitions >= 1 AND p.repetitions <= 3"
+        where = "p.repetitions >= 1 AND p.repetitions <= 3 AND p.easiness_factor >= 1.8"
     elif category == "struggling":
-        where = "p.easiness_factor < 1.8"
+        where = "p.repetitions < 4 AND (p.repetitions = 0 OR p.easiness_factor < 1.8)"
     else:  # introduced — all words the user has ever studied
         where = "1=1"
 
