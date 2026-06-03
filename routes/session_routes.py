@@ -86,16 +86,29 @@ def import_status():
 @limiter.limit("30 per minute")
 def api_new_session():
     """
-    10 random words this user has never studied.
+    Up to 10 random words this user has never studied, capped by today's quota.
 
     Optional query param
     --------------------
     level : One of A1 | A2 | B1 | B2.  Omit for all CEFR levels.
     """
-    user_id = session["user_id"]
-    level   = request.args.get("level", "").strip().upper()
-    conn    = get_connection()
-    cur     = conn.cursor()
+    user_id   = session["user_id"]
+    level     = request.args.get("level", "").strip().upper()
+    conn      = get_connection()
+    cur       = conn.cursor()
+
+    today_str = get_current_date().strftime("%Y-%m-%d")
+    cur.execute(
+        "SELECT COUNT(*) AS n FROM progress "
+        "WHERE user_id = ? AND created_at = ? AND repetitions = 1",
+        (user_id, today_str),
+    )
+    new_today = cur.fetchone()["n"]
+    limit     = max(0, 10 - new_today)
+
+    if limit == 0:
+        conn.close()
+        return jsonify({"words": [], "type": "new", "level": level or "all"})
 
     if level in ("A1", "A2", "B1", "B2"):
         cur.execute("""
@@ -106,8 +119,8 @@ def api_new_session():
             WHERE  p.word_id IS NULL
               AND  w.cefr_level = ?
             ORDER  BY RANDOM()
-            LIMIT  10
-        """, (user_id, level))
+            LIMIT  ?
+        """, (user_id, level, limit))
     else:
         cur.execute("""
             SELECT w.id, w.word, w.pos, w.cefr_level,
@@ -116,8 +129,8 @@ def api_new_session():
             LEFT JOIN progress p ON w.id = p.word_id AND p.user_id = ?
             WHERE  p.word_id IS NULL
             ORDER  BY RANDOM()
-            LIMIT  10
-        """, (user_id,))
+            LIMIT  ?
+        """, (user_id, limit))
 
     words = [dict(r) for r in cur.fetchall()]
     conn.close()
