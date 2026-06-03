@@ -21,6 +21,8 @@ const PLAYER_DAMAGE  = 20   // damage dealt to boss on correct answer
 const PLAYER_HEAL    = 5    // HP healed on correct answer
 const BOSS_BASE_HP   = 100  // boss HP = BOSS_BASE_HP × wave
 const BOSS_BASE_DMG  = 5    // boss damage = BOSS_BASE_DMG × wave
+const CRIT_THRESHOLD = 3    // consecutive correct answers needed for a crit
+const CRIT_MULTIPLIER = 2   // crit damage multiplier
 
 const BOSSES = [
   { emoji: '🐭', name: 'Rat'    },
@@ -186,6 +188,7 @@ export default function Game({ onBack }) {
   // Scores
   const [correct, setCorrect] = useState(0)
   const [wrong,   setWrong]   = useState(0)
+  const [streak,  setStreak]  = useState(0)
 
   const mutedRef = useRef(false)
   const [muted, setMuted] = useState(false)
@@ -241,15 +244,19 @@ export default function Game({ onBack }) {
       const isCorrect = blankedIndices.every((ci, slot) =>
         currentWord[ci].toLowerCase() === newFilled[slot]
       )
-      setTimeout(() => resolveAnswer(isCorrect, currentWord, playerHP, bossHP, wave), 300)
+      setTimeout(() => resolveAnswer(isCorrect, currentWord, playerHP, bossHP, wave, streak), 300)
     }
   }
 
-  function resolveAnswer(isCorrect, wordStr, curPlayerHP, curBossHP, curWave) {
+  function resolveAnswer(isCorrect, wordStr, curPlayerHP, curBossHP, curWave, curStreak) {
     const curBoss = BOSSES[Math.min(curWave - 1, BOSSES.length - 1)]
 
     if (isCorrect) {
-      const newBossHP   = Math.max(0, curBossHP - PLAYER_DAMAGE)
+      const newStreak = curStreak + 1
+      const isCrit    = newStreak >= CRIT_THRESHOLD
+      const dmg       = isCrit ? PLAYER_DAMAGE * CRIT_MULTIPLIER : PLAYER_DAMAGE
+      setStreak(isCrit ? 0 : newStreak)
+      const newBossHP   = Math.max(0, curBossHP - dmg)
       const newPlayerHP = Math.min(PLAYER_MAX_HP, curPlayerHP + PLAYER_HEAL)
       setBossHP(newBossHP)
       setPlayerHP(newPlayerHP)
@@ -258,7 +265,9 @@ export default function Game({ onBack }) {
       setTimeout(() => setBossFlash(false), 500)
       setLastResult('correct')
       setCorrect(c => c + 1)
-      setMessage(`✅ Hit! -${PLAYER_DAMAGE} to ${curBoss.name} · +${PLAYER_HEAL} HP`)
+      setMessage(isCrit
+        ? `⚡ CRITICAL! -${dmg} to ${curBoss.name} · +${PLAYER_HEAL} HP`
+        : `✅ Hit! -${dmg} to ${curBoss.name} · +${PLAYER_HEAL} HP`)
 
       if (newBossHP <= 0) {
         const nextWave    = curWave + 1
@@ -277,6 +286,7 @@ export default function Game({ onBack }) {
       setTimeout(() => bossTurn(newPlayerHP, curWave, curBoss.name), 1400)
     } else {
       sound(playMiss)
+      setStreak(0)
       setLastResult('miss')
       setWrong(w => w + 1)
       setMessage(`❌ Miss! Correct: "${wordStr}"`)
@@ -312,6 +322,7 @@ export default function Game({ onBack }) {
     setPlayerHP(PLAYER_MAX_HP)
     setCorrect(0)
     setWrong(0)
+    setStreak(0)
     setMessage('')
     setLastResult(null)
     setAnswerLocked(false)
@@ -472,7 +483,7 @@ export default function Game({ onBack }) {
               <HPBar current={playerHP} max={PLAYER_MAX_HP} color="#3b82f6" label="You" />
             </div>
           </div>
-          <div className="flex gap-2 mt-1">
+          <div className="flex gap-2 mt-1 flex-wrap">
             <span className="text-xs px-2 py-0.5 rounded-full font-semibold text-emerald-400"
                   style={{ background: 'rgba(6,78,59,0.4)' }}>
               ✓ {correct}
@@ -481,6 +492,16 @@ export default function Game({ onBack }) {
                   style={{ background: 'rgba(127,29,29,0.4)' }}>
               ✗ {wrong}
             </span>
+            {streak > 0 && (
+              <span className={`text-xs px-2 py-0.5 rounded-full font-bold select-none ${
+                streak >= CRIT_THRESHOLD - 1
+                  ? 'text-yellow-300 animate-pulse'
+                  : 'text-orange-300'
+              }`} style={{ background: 'rgba(120,60,0,0.5)' }}>
+                {streak >= CRIT_THRESHOLD - 1 ? '⚡' : '🔥'} {streak} combo
+                {streak >= CRIT_THRESHOLD - 1 ? ' — CRIT READY!' : ''}
+              </span>
+            )}
           </div>
         </div>
 
