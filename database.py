@@ -256,7 +256,17 @@ def _migrate() -> None:
         cur.execute("UPDATE progress SET created_at = '2000-01-01' WHERE created_at IS NULL")
         print("[database] Migration: added progress.created_at")
 
-    # ── 6. words: insert number words + articles that old parser missed ─────────
+    # ── 7. progress: add FSRS columns (stability, difficulty) ────────────────────
+    # NULL = row was scheduled by SM-2 and has no FSRS state yet.
+    # When FSRS is enabled these will be populated from review history.
+    cur.execute("PRAGMA table_info(progress)")
+    prog_cols3 = {r["name"] for r in cur.fetchall()}
+    for col in ("stability", "difficulty"):
+        if col not in prog_cols3:
+            cur.execute(f"ALTER TABLE progress ADD COLUMN {col} REAL")
+            print(f"[database] Migration: added progress.{col} (FSRS-ready, NULL = SM-2 row)")
+
+    # ── 8. words: insert number words + articles that old parser missed ─────────
     # Original import predates support for pos="number" / "indefinite article" /
     # "definite article", so these Oxford-3000 entries were never written to DB.
     # This migration is idempotent: INSERT OR IGNORE is a no-op if the row exists.
