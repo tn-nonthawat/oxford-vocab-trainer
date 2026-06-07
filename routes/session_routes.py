@@ -513,6 +513,32 @@ def api_analytics_breakdown():
         WHERE user_id = ?
     """, (user_id,))
     h = dict(cur.fetchone())
+
+    cur.execute("SELECT COUNT(*) AS n FROM words")
+    total_words = cur.fetchone()["n"]
+
+    cur.execute("""
+        SELECT w.word, w.pos, w.cefr_level,
+               ROUND(p.easiness_factor, 2) AS easiness_factor,
+               p.repetitions
+        FROM   progress p
+        JOIN   words w ON p.word_id = w.id
+        WHERE  p.user_id = ? AND p.repetitions > 0
+        ORDER  BY p.easiness_factor ASC
+        LIMIT  10
+    """, (user_id,))
+    hardest = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("""
+        SELECT CAST(strftime('%w', created_at) AS INTEGER) AS dow,
+               COUNT(*) AS count
+        FROM   progress
+        WHERE  user_id = ? AND created_at != '2000-01-01'
+        GROUP  BY dow
+    """, (user_id,))
+    weekly_map = {r["dow"]: r["count"] for r in cur.fetchall()}
+    weekly_pattern = [weekly_map.get(i, 0) for i in range(7)]  # index 0=Sun … 6=Sat
+
     conn.close()
 
     return jsonify({
@@ -521,6 +547,9 @@ def api_analytics_breakdown():
             "avg_ef"           : h["avg_ef"] or 0,
             "total_reviews"    : h["total_reviews"] or 0,
             "total_introduced" : h["total_introduced"] or 0,
+            "total_words"      : total_words,
             "streak"           : _get_streak(user_id),
         },
+        "hardest_words" : hardest,
+        "weekly_pattern": weekly_pattern,
     })

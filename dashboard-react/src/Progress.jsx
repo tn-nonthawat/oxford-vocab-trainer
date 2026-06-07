@@ -72,7 +72,7 @@ function HealthStats({ brk }) {
 
 // ── Activity Chart — vertical bars, last 30 days ───────────────────────────────
 
-function ActivityChart({ hist }) {
+function ActivityChart({ hist, totalWords, totalIntroduced }) {
   const todayStr = useMemo(() => new Date().toISOString().slice(0, 10), [])
 
   const days = useMemo(() => {
@@ -88,12 +88,24 @@ function ActivityChart({ hist }) {
   const total30    = days.reduce((s, d) => s + d.count, 0)
   const activeDays = days.filter(d => d.count > 0).length
 
+  const etaLabel = useMemo(() => {
+    const avg = total30 / 30
+    if (avg < 0.1 || !totalWords || !totalIntroduced) return null
+    const remaining = Math.max(0, totalWords - totalIntroduced)
+    if (remaining === 0) return 'All words introduced! 🎉'
+    const days = Math.ceil(remaining / avg)
+    return days <= 365
+      ? `~${days} days to finish at this pace`
+      : `~${(days / 365).toFixed(1)} years to finish at this pace`
+  }, [total30, totalWords, totalIntroduced])
+
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
       <div className="flex items-start justify-between mb-3">
         <div>
           <p className="text-sm font-semibold text-gray-700">📅 Daily Activity</p>
           <p className="text-xs text-gray-400 mt-0.5">New words per day · last 30 days</p>
+          {etaLabel && <p className="text-xs text-indigo-500 mt-0.5">{etaLabel}</p>}
         </div>
         <div className="text-right shrink-0">
           <p className="text-sm font-bold text-blue-600 tabular-nums">{total30} words</p>
@@ -273,6 +285,118 @@ function CefrBreakdown({ brk }) {
   )
 }
 
+// ── Weekly Pattern — vertical bars Mon–Sun ────────────────────────────────────
+
+const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+
+function WeeklyPattern({ brk }) {
+  // weekly_pattern is [Sun, Mon, Tue, Wed, Thu, Fri, Sat]; reorder to Mon–Sun for display
+  const raw      = brk?.weekly_pattern ?? [0, 0, 0, 0, 0, 0, 0]
+  const days     = [1, 2, 3, 4, 5, 6, 0].map(i => ({ label: DAY_LABELS[i], count: raw[i] }))
+  const maxCount = Math.max(...days.map(d => d.count), 1)
+  const total    = days.reduce((s, d) => s + d.count, 0)
+  const bestDay  = days.reduce((b, d) => d.count > b.count ? d : b, days[0])
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-700">📆 Weekly Pattern</p>
+          <p className="text-xs text-gray-400 mt-0.5">New words by day of week · all-time</p>
+          {total > 0 && (
+            <p className="text-xs text-purple-500 mt-0.5">Best day: {bestDay.label} ({bestDay.count})</p>
+          )}
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-sm font-bold text-purple-600 tabular-nums">{total}</p>
+          <p className="text-xs text-gray-400">total words</p>
+        </div>
+      </div>
+
+      <div className="flex items-end gap-2" style={{ height: 64 }}>
+        {days.map(({ label, count }) => {
+          const h      = count > 0 ? Math.max(6, Math.round(count / maxCount * 64)) : 3
+          const isMax  = count > 0 && count === maxCount
+          return (
+            <div key={label} className="flex-1 group relative flex flex-col justify-end" style={{ height: 64 }}>
+              <div
+                className={`w-full rounded-sm transition-colors ${
+                  count === 0 ? 'bg-gray-100' :
+                  isMax ? 'bg-purple-500' : 'bg-purple-300 group-hover:bg-purple-500'
+                }`}
+                style={{ height: h }}
+                title={`${label}: ${count}`}
+              />
+              {count > 0 && (
+                <div className="pointer-events-none absolute bottom-full mb-1 left-1/2 -translate-x-1/2
+                                bg-gray-900 text-white text-xs rounded px-1.5 py-0.5 whitespace-nowrap
+                                opacity-0 group-hover:opacity-100 transition-opacity z-20 shadow">
+                  {label}: {count}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="flex gap-2 mt-1.5">
+        {days.map(({ label }) => (
+          <div key={label} className="flex-1 text-center">
+            <span className="text-xs text-gray-400 select-none">{label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Hardest Words — lowest ease factor ───────────────────────────────────────
+
+function HardestWords({ brk }) {
+  const words = brk?.hardest_words ?? []
+
+  function efStyle(ef) {
+    if (ef < 1.5) return 'text-red-600 bg-red-50 border-red-200'
+    if (ef < 1.8) return 'text-amber-600 bg-amber-50 border-amber-200'
+    return 'text-gray-500 bg-gray-50 border-gray-200'
+  }
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <p className="text-sm font-semibold text-gray-700 mb-0.5">🔴 Hardest Words</p>
+      <p className="text-xs text-gray-400 mb-4">Lowest ease factor · needs most practice</p>
+
+      {words.length === 0 ? (
+        <p className="text-sm text-gray-400 text-center py-6 select-none">No reviews yet</p>
+      ) : (
+        <ul className="space-y-2">
+          {words.map((w, i) => (
+            <li key={w.word} className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-xs text-gray-300 tabular-nums w-4 shrink-0">{i + 1}</span>
+                <span className="font-semibold text-gray-800 text-sm truncate">{w.word}</span>
+                {w.pos && <span className="text-xs text-gray-400 shrink-0">{w.pos}</span>}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <span className="text-xs font-medium text-gray-400 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5">
+                  {w.cefr_level}
+                </span>
+                <span className={`text-xs font-bold px-1.5 py-0.5 rounded border tabular-nums ${efStyle(w.easiness_factor)}`}>
+                  {w.easiness_factor}
+                </span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <p className="text-xs text-gray-400 mt-4 pt-3 border-t border-gray-100">
+        EF &lt;1.5 = very hard · 1.5–1.8 = hard · 1.8+ = normal
+      </p>
+    </div>
+  )
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 export default function Progress({ onBack }) {
@@ -316,10 +440,18 @@ export default function Progress({ onBack }) {
         {!loading && !error && data && (
           <>
             <HealthStats brk={data.brk} />
-            <ActivityChart hist={data.hist} />
+            <ActivityChart
+              hist={data.hist}
+              totalWords={data.brk?.health?.total_words}
+              totalIntroduced={data.brk?.health?.total_introduced}
+            />
             <div className="grid sm:grid-cols-2 gap-4">
+              <WeeklyPattern brk={data.brk} />
               <ForecastChart fore={data.fore} />
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
               <CefrBreakdown brk={data.brk} />
+              <HardestWords brk={data.brk} />
             </div>
           </>
         )}
