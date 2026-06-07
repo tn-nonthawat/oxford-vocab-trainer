@@ -453,11 +453,12 @@ function ReviewCard({ word: w, onRate }) {
   const [spelling,      setSpelling]      = useState('')
   const [checkResult,   setCheckResult]   = useState(null)  // null | 'correct' | 'incorrect'
   const [hintUsed,      setHintUsed]      = useState(false)
+  const [audioUsed,     setAudioUsed]     = useState(false)
   const [ratingLocked,  setRatingLocked]  = useState(false)
   const [rateError,     setRateError]     = useState('')
   const inputRef = useRef(null)
 
-  // Load meaning + speak word on mount
+  // Load meaning on mount — no auto-play so user must recall from meaning alone
   useEffect(() => {
     async function load() {
       if (!meaning) {
@@ -473,9 +474,13 @@ function ReviewCard({ word: w, onRate }) {
       }
     }
     load()
-    setTimeout(() => speakWord(w.word), 200)
-    setTimeout(() => inputRef.current?.focus(), 380)
+    setTimeout(() => inputRef.current?.focus(), 200)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleAudio() {
+    speakWord(w.word)
+    setAudioUsed(true)
+  }
 
   function handleHint() {
     if (hintUsed || checkResult !== null) return
@@ -488,6 +493,7 @@ function ReviewCard({ word: w, onRate }) {
     if (!spelling.trim() || checkResult !== null) return
     const isCorrect = spelling.trim().toLowerCase() === w.word.toLowerCase()
     setCheckResult(isCorrect ? 'correct' : 'incorrect')
+    if (isCorrect) speakWord(w.word)
   }
 
   async function handleRate(q) {
@@ -503,8 +509,11 @@ function ReviewCard({ word: w, onRate }) {
     }
   }
 
-  const allowedRatings    = checkResult === 'correct' ? [4, 5] : checkResult === 'incorrect' ? [0, 3] : null
-  const maskedExample     = checkResult ? example : maskWord(example, w.word)
+  const allowedRatings = checkResult === 'correct'
+    ? (audioUsed ? [3] : [4, 5])
+    : checkResult === 'incorrect' ? [0, 3] : null
+  const maskedExample  = checkResult ? example : maskWord(example, w.word)
+  const hasThaNote     = !!w.user_note
 
   return (
     <div className="bg-white rounded-2xl shadow-lg p-7">
@@ -512,7 +521,7 @@ function ReviewCard({ word: w, onRate }) {
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2 mb-5">
         <p className="text-xs font-bold uppercase tracking-widest text-gray-400 w-full mb-0.5">
-          Listen &amp; spell the word
+          What's the English word?
         </p>
         <span className={`text-xs font-bold px-3 py-1 rounded-full select-none
                          ${CEFR_CLS[w.cefr_level] || 'bg-gray-100 text-gray-600'}`}>
@@ -521,22 +530,31 @@ function ReviewCard({ word: w, onRate }) {
         <span className="text-xs font-mono bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
           {w.pos}
         </span>
-        <button onClick={() => speakWord(w.word)}
-                title="Read word"
-                className="ml-auto flex items-center justify-center w-9 h-9
-                           rounded-full bg-blue-50 hover:bg-blue-100 active:scale-90
-                           border border-blue-100 text-lg shadow-sm
-                           transition-all duration-150 cursor-pointer">
+        <button onClick={handleAudio}
+                title={audioUsed ? 'Audio used — max rating capped at 3' : 'Hear the word (caps rating at 3)'}
+                className={`ml-auto flex items-center justify-center w-9 h-9
+                           rounded-full border text-lg shadow-sm
+                           active:scale-90 transition-all duration-150 cursor-pointer
+                           ${audioUsed
+                             ? 'bg-amber-50 border-amber-200 opacity-60'
+                             : 'bg-blue-50 hover:bg-blue-100 border-blue-100'}`}>
           🔊
         </button>
       </div>
 
-      {/* Meaning cue */}
+      {/* Meaning cue — Thai note as primary if available, definition as secondary */}
       {loadingMeaning ? (
         <Spinner text="Loading definition cue…" />
       ) : (
         <div className="mb-4">
-          <p className="text-gray-800 text-base leading-relaxed mb-3">{meaning || '—'}</p>
+          {hasThaNote && (
+            <p className="text-gray-900 text-lg font-medium leading-relaxed mb-2">
+              {w.user_note}
+            </p>
+          )}
+          <p className={`leading-relaxed mb-3 ${hasThaNote ? 'text-gray-400 text-sm' : 'text-gray-800 text-base'}`}>
+            {meaning || '—'}
+          </p>
           {example && (
             <p className="text-gray-500 text-sm italic leading-relaxed">
               "{maskedExample}"
@@ -550,7 +568,7 @@ function ReviewCard({ word: w, onRate }) {
       {/* Spelling input */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-          ✏️ Type the word you heard
+          ✏️ Type the English word
         </p>
         <div className="flex gap-2 overflow-hidden">
           <input
