@@ -139,6 +139,29 @@ def init_db() -> None:
         )
     """)
 
+    # ── Per-review event log ───────────────────────────────────────────────────
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS review_log (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id     INTEGER NOT NULL REFERENCES users(id),
+            word_id     INTEGER NOT NULL REFERENCES words(id),
+            quality     INTEGER NOT NULL,
+            reviewed_at TEXT    NOT NULL
+        )
+    """)
+
+    # ── Per-session log ───────────────────────────────────────────────────────
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS session_log (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id      INTEGER NOT NULL REFERENCES users(id),
+            type         TEXT    NOT NULL,
+            word_count   INTEGER NOT NULL DEFAULT 0,
+            duration_sec INTEGER,
+            started_at   TEXT    NOT NULL
+        )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -266,7 +289,16 @@ def _migrate() -> None:
             cur.execute(f"ALTER TABLE progress ADD COLUMN {col} REAL")
             print(f"[database] Migration: added progress.{col} (FSRS-ready, NULL = SM-2 row)")
 
-    # ── 8. words: insert number words + articles that old parser missed ─────────
+    # ── 8. user_stats: add longest_streak column ─────────────────────────────────
+    cur.execute("PRAGMA table_info(user_stats)")
+    stats_cols2 = {r["name"] for r in cur.fetchall()}
+    if "longest_streak" not in stats_cols2:
+        cur.execute("ALTER TABLE user_stats ADD COLUMN longest_streak INTEGER DEFAULT 0")
+        # Seed from current_streak so existing users aren't reset to 0
+        cur.execute("UPDATE user_stats SET longest_streak = current_streak")
+        print("[database] Migration: added user_stats.longest_streak")
+
+    # ── 9. words: insert number words + articles that old parser missed ─────────
     # Original import predates support for pos="number" / "indefinite article" /
     # "definite article", so these Oxford-3000 entries were never written to DB.
     # This migration is idempotent: INSERT OR IGNORE is a no-op if the row exists.

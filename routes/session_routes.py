@@ -226,6 +226,10 @@ def api_submit_review():
                 VALUES (?, ?, ?, 2.5, ?, ?, ?, ?, ?)
             """, (user_id, word_id, iv, reps, next_date, today_str, new_stab, new_diff))
 
+        cur.execute(
+            "INSERT INTO review_log (user_id, word_id, quality, reviewed_at) VALUES (?, ?, ?, ?)",
+            (user_id, word_id, quality, get_current_date().strftime("%Y-%m-%d")),
+        )
         conn.commit()
         streak = _update_streak(user_id)
         return jsonify({
@@ -426,6 +430,30 @@ def api_save_preferences():
         INSERT INTO user_preferences (user_id, prefs_json) VALUES (?, ?)
         ON CONFLICT(user_id) DO UPDATE SET prefs_json = excluded.prefs_json
     """, (user_id, json.dumps(existing)))
+    conn.commit()
+    conn.close()
+    return jsonify({"ok": True})
+
+
+@session_bp.route("/api/session-log", methods=["POST"])
+@login_required
+@limiter.limit("60 per minute")
+def api_session_log():
+    """Record a completed study session."""
+    user_id = session["user_id"]
+    data    = request.get_json(force=True) or {}
+    stype        = str(data.get("type", ""))[:20]
+    word_count   = int(data.get("word_count", 0))
+    duration_sec = data.get("duration_sec")
+    if duration_sec is not None:
+        duration_sec = int(duration_sec)
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute(
+        "INSERT INTO session_log (user_id, type, word_count, duration_sec, started_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (user_id, stype, word_count, duration_sec, get_current_date().strftime("%Y-%m-%d")),
+    )
     conn.commit()
     conn.close()
     return jsonify({"ok": True})

@@ -782,6 +782,7 @@ function SessionComplete({ scores, totalWords, sessionType, postStats, onBack, o
 export default function Session({ type, level, onBack }) {
   // 'loading' | 'card' | 'empty' | 'batch-done' | 'complete'
   const [phase,        setPhase]        = useState('loading')
+  const sessionStartRef = useRef(Date.now())
   const [words,        setWords]        = useState([])
   const [idx,          setIdx]          = useState(0)
   // Per-batch scores (reset each batch)
@@ -823,6 +824,18 @@ export default function Session({ type, level, onBack }) {
 
   // Fetch word list on mount
   useEffect(() => { loadWords(type, level) }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Log session when complete
+  useEffect(() => {
+    if (phase !== 'complete') return
+    const duration = Math.round((Date.now() - sessionStartRef.current) / 1000)
+    fetch('/api/session-log', {
+      method     : 'POST',
+      headers    : { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body       : JSON.stringify({ type, word_count: totalWords, duration_sec: duration }),
+    }).catch(() => {})
+  }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleRate(quality) {
     const s = { ...scores }

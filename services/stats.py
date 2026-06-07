@@ -183,9 +183,10 @@ def _update_streak(user_id: int) -> int:
 
     cur.execute(
         "UPDATE user_stats "
-        "SET last_activity_date = ?, current_streak = ? "
+        "SET last_activity_date = ?, current_streak = ?, "
+        "    longest_streak = CASE WHEN ? > longest_streak THEN ? ELSE longest_streak END "
         "WHERE user_id = ?",
-        (today, streak, user_id),
+        (today, streak, streak, streak, user_id),
     )
     conn.commit()
     conn.close()
