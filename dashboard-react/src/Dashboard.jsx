@@ -193,9 +193,10 @@ function useDashboardStats() {
             },
             streak : json.streak     ?? 0,
             mastery: {
-              mastered  : json.mastered   ?? 0,
-              learning  : json.learning   ?? 0,
-              struggling: json.struggling ?? 0,
+              mastered         : json.mastered          ?? 0,
+              learning         : json.learning          ?? 0,
+              struggling       : json.struggling        ?? 0,
+              nextMasteredDate : json.next_mastered_date ?? null,
             },
             newToday: json.new_today ?? 0,
           })
@@ -562,6 +563,16 @@ function StatsCard({ progress, streak }) {
 function DistProgressCard({ levelCounts, total, progress, mastery, onCategoryClick }) {
   const introPct = total > 0 ? (progress.introduced / total * 100).toFixed(1) : 0
 
+  // Days until the first rep=3 word is due for its 4th review (mastered).
+  const masteredHint = (() => {
+    if (mastery.mastered > 0 || !mastery.nextMasteredDate) return null
+    const today = new Date(); today.setHours(0, 0, 0, 0)
+    const target = new Date(mastery.nextMasteredDate + 'T00:00:00')
+    const days = Math.round((target - today) / 86400000)
+    if (days <= 0) return 'รีวิวคำที่ค้างอยู่เพื่อรับ Mastered แรก!'
+    return `อีก ${days} วัน — Mastered แรกจะมา`
+  })()
+
   return (
     <Card>
       {/* ── Level Distribution ───────────────────────────────────────────── */}
@@ -633,7 +644,10 @@ function DistProgressCard({ levelCounts, total, progress, mastery, onCategoryCli
             {mastery.mastered.toLocaleString()}
           </p>
           <p className="text-xs font-bold text-emerald-700 mt-0.5">Mastered</p>
-          <p className="text-xs text-gray-400">4+ reviews</p>
+          {masteredHint
+            ? <p className="text-xs text-emerald-600 mt-0.5 leading-tight">{masteredHint}</p>
+            : <p className="text-xs text-gray-400">4+ reviews</p>
+          }
           <p className="text-xs text-emerald-500 mt-1 opacity-0 group-hover:opacity-100 transition-opacity select-none">
             tap to view →
           </p>

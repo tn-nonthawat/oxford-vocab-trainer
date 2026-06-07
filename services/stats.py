@@ -109,8 +109,21 @@ def _mastery_stats(user_id: int) -> dict:
     )
     struggling = cur.fetchone()["n"]
 
+    # Earliest date a rep=3 word is due — tells the frontend when mastered will tick up.
+    # Only meaningful when mastered is still 0.
+    next_mastered_date = None
+    if mastered == 0:
+        cur.execute(
+            "SELECT MIN(next_review_date) AS d FROM progress "
+            "WHERE user_id = ? AND repetitions = 3",
+            (user_id,),
+        )
+        row = cur.fetchone()
+        next_mastered_date = row["d"] if row and row["d"] else None
+
     conn.close()
-    return {"mastered": mastered, "learning": learning, "struggling": struggling}
+    return {"mastered": mastered, "learning": learning, "struggling": struggling,
+            "next_mastered_date": next_mastered_date}
 
 
 # ── Streak helpers ────────────────────────────────────────────────────────────
