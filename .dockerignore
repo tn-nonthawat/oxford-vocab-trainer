@@ -34,3 +34,8 @@ dashboard-react/dist/
 Thumbs.db
 .vscode/
 .idea/
+
+# Claude Code local config (contains symlinks that break Docker build context)
+.claude/
+.agents/
+skills-lock.json
