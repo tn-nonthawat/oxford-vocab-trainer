@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Dashboard from './Dashboard.jsx'
 import Session   from './Session.jsx'
 import Game      from './Game.jsx'
+import Progress  from './Progress.jsx'
 
 /**
  * App.jsx  –  Top-level view router (no URL routing needed — just React state).
@@ -10,6 +11,7 @@ import Game      from './Game.jsx'
  * ─────
  *   'dashboard'  – the live stats grid (default)
  *   'session'    – flashcard study session (new-word or review)
+ *   'progress'   – analytics page
  */
 export default function App() {
   const [view,          setView]          = useState('dashboard')
@@ -29,6 +31,10 @@ export default function App() {
     return <Game onBack={() => setView('dashboard')} />
   }
 
+  if (view === 'progress') {
+    return <Progress onBack={() => setView('dashboard')} />
+  }
+
   return (
     <Dashboard
       onStartSession={config => {
@@ -36,6 +42,7 @@ export default function App() {
         setView('session')
       }}
       onStartGame={() => setView('game')}
+      onViewProgress={() => setView('progress')}
     />
   )
 }

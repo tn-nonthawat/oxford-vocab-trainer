@@ -1207,7 +1207,7 @@ function ResetButton({ onReset }) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  MAIN DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
-export default function Dashboard({ onStartSession, onStartGame }) {
+export default function Dashboard({ onStartSession, onStartGame, onViewProgress }) {
   const { width } = useWindowSize()
 
   // ── Breakpoints ────────────────────────────────────────────────────────────
@@ -1433,6 +1433,17 @@ export default function Dashboard({ onStartSession, onStartGame }) {
                   <span>Reset Layout</span>
                 </button>
               )}
+
+              {/* Progress Analytics */}
+              <button
+                onClick={() => { onViewProgress(); setMenuOpen(false) }}
+                className="w-full text-left px-4 py-2.5 text-sm text-gray-700
+                           hover:bg-blue-50 hover:text-blue-700 flex items-center gap-2.5
+                           transition-colors cursor-pointer"
+              >
+                <span>📈</span>
+                <span>Progress Analytics</span>
+              </button>
 
               {/* Logout */}
               <div className="border-t border-gray-100 mt-1 pt-1">

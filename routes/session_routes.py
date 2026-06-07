@@ -8,6 +8,7 @@ URL prefix     : (none — routes mount at /, /api/*, /import-*)
 import json
 import logging
 import os
+from datetime import timedelta
 
 from flask import Blueprint, current_app, jsonify, request, send_from_directory, session
 
@@ -428,3 +429,98 @@ def api_save_preferences():
     conn.commit()
     conn.close()
     return jsonify({"ok": True})
+
+
+# ── Analytics routes ──────────────────────────────────────────────────────────
+
+@session_bp.route("/api/analytics/history")
+@login_required
+@limiter.limit("30 per minute")
+def api_analytics_history():
+    """New words introduced per day for the last 60 days."""
+    user_id  = session["user_id"]
+    today    = get_current_date()
+    since    = (today - timedelta(days=59)).strftime("%Y-%m-%d")
+    conn     = get_connection()
+    cur      = conn.cursor()
+    cur.execute("""
+        SELECT created_at AS date, COUNT(*) AS count
+        FROM   progress
+        WHERE  user_id = ? AND created_at != '2000-01-01' AND created_at >= ?
+        GROUP  BY created_at
+        ORDER  BY created_at ASC
+    """, (user_id, since))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return jsonify({"history": rows})
+
+
+@session_bp.route("/api/analytics/forecast")
+@login_required
+@limiter.limit("30 per minute")
+def api_analytics_forecast():
+    """Words due per day for the next 14 days."""
+    user_id  = session["user_id"]
+    today    = get_current_date()
+    today_str = today.strftime("%Y-%m-%d")
+    end_str   = (today + timedelta(days=13)).strftime("%Y-%m-%d")
+    conn     = get_connection()
+    cur      = conn.cursor()
+    cur.execute("""
+        SELECT next_review_date AS date, COUNT(*) AS count
+        FROM   progress
+        WHERE  user_id = ? AND next_review_date BETWEEN ? AND ?
+        GROUP  BY next_review_date
+        ORDER  BY next_review_date
+    """, (user_id, today_str, end_str))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return jsonify({"forecast": rows, "today": today_str})
+
+
+@session_bp.route("/api/analytics/breakdown")
+@login_required
+@limiter.limit("30 per minute")
+def api_analytics_breakdown():
+    """Per-CEFR mastery breakdown + overall health metrics."""
+    user_id = session["user_id"]
+    conn    = get_connection()
+    cur     = conn.cursor()
+
+    cur.execute("""
+        SELECT
+            w.cefr_level,
+            SUM(CASE WHEN p.repetitions >= 4 THEN 1 ELSE 0 END)                                                         AS mastered,
+            SUM(CASE WHEN p.repetitions BETWEEN 1 AND 3 AND p.easiness_factor >= 1.8 THEN 1 ELSE 0 END)                 AS learning,
+            SUM(CASE WHEN p.repetitions < 4 AND (p.repetitions = 0 OR p.easiness_factor < 1.8) THEN 1 ELSE 0 END)      AS struggling,
+            COUNT(*)                                                                                                      AS total_introduced,
+            ROUND(AVG(p.easiness_factor), 2)                                                                             AS avg_ef,
+            (SELECT COUNT(*) FROM words w2 WHERE w2.cefr_level = w.cefr_level)                                           AS total_in_level
+        FROM   progress p
+        JOIN   words w ON p.word_id = w.id
+        WHERE  p.user_id = ?
+        GROUP  BY w.cefr_level
+        ORDER  BY w.cefr_level
+    """, (user_id,))
+    cefr_rows = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("""
+        SELECT
+            ROUND(AVG(easiness_factor), 2) AS avg_ef,
+            SUM(repetitions)               AS total_reviews,
+            COUNT(*)                       AS total_introduced
+        FROM progress
+        WHERE user_id = ?
+    """, (user_id,))
+    h = dict(cur.fetchone())
+    conn.close()
+
+    return jsonify({
+        "cefr_breakdown": cefr_rows,
+        "health": {
+            "avg_ef"           : h["avg_ef"] or 0,
+            "total_reviews"    : h["total_reviews"] or 0,
+            "total_introduced" : h["total_introduced"] or 0,
+            "streak"           : _get_streak(user_id),
+        },
+    })
