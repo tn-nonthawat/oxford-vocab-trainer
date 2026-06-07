@@ -31,7 +31,7 @@ from services.stats import (
     _update_streak,
     _word_counts,
 )
-from srs import calculate_next_review
+import fsrs
 
 session_bp = Blueprint("session", __name__)
 
@@ -169,7 +169,7 @@ def api_review_session():
 @login_required
 @limiter.limit("60 per minute")
 def api_submit_review():
-    """Accept {word_id, quality}; upsert this user's progress row via SM-2."""
+    """Accept {word_id, quality}; upsert this user's progress row via FSRS-5."""
     user_id = session["user_id"]
     conn    = None
     try:
@@ -188,7 +188,6 @@ def api_submit_review():
         conn = get_connection()
         cur  = conn.cursor()
 
-        # Validate that word_id actually exists in the shared word list.
         cur.execute("SELECT id FROM words WHERE id = ?", (word_id,))
         if not cur.fetchone():
             conn.close()
@@ -198,33 +197,39 @@ def api_submit_review():
             "SELECT * FROM progress WHERE user_id = ? AND word_id = ?",
             (user_id, word_id),
         )
-        row = cur.fetchone()
+        row  = cur.fetchone()
+        reps = 0 if quality < 3 else (row["repetitions"] + 1 if row else 1)
 
         if row:
-            iv, ef, reps, next_date = calculate_next_review(
-                quality, row["interval"], row["easiness_factor"], row["repetitions"]
+            # Resolve FSRS state — migrate SM-2 rows on first encounter
+            if row["stability"] is None:
+                stab, diff = fsrs.sm2_to_fsrs(row["interval"], row["easiness_factor"])
+            else:
+                stab, diff = row["stability"], row["difficulty"]
+            iv, new_stab, new_diff, next_date = fsrs.calculate_next_review(
+                quality, stab, diff, row["interval"]
             )
             cur.execute("""
                 UPDATE progress
-                SET    interval=?, easiness_factor=?, repetitions=?, next_review_date=?
+                SET    interval=?, repetitions=?, next_review_date=?,
+                       stability=?, difficulty=?
                 WHERE  user_id=? AND word_id=?
-            """, (iv, ef, reps, next_date, user_id, word_id))
+            """, (iv, reps, next_date, new_stab, new_diff, user_id, word_id))
         else:
-            iv, ef, reps, next_date = calculate_next_review(quality, 0, 2.5, 0)
+            iv, new_stab, new_diff, next_date = fsrs.init_card(quality)
             today_str = get_current_date().strftime("%Y-%m-%d")
             cur.execute("""
                 INSERT INTO progress
                     (user_id, word_id, interval, easiness_factor,
-                     repetitions, next_review_date, created_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (user_id, word_id, iv, ef, reps, next_date, today_str))
+                     repetitions, next_review_date, created_at, stability, difficulty)
+                VALUES (?, ?, ?, 2.5, ?, ?, ?, ?, ?)
+            """, (user_id, word_id, iv, reps, next_date, today_str, new_stab, new_diff))
 
         conn.commit()
         streak = _update_streak(user_id)
         return jsonify({
             "success"         : True,
             "interval"        : iv,
-            "easiness_factor" : ef,
             "repetitions"     : reps,
             "next_review_date": next_date,
             "streak"          : streak,
