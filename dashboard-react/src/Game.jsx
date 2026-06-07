@@ -256,8 +256,9 @@ export default function Game({ onBack }) {
       const isCrit    = newStreak >= CRIT_THRESHOLD
       const dmg       = isCrit ? PLAYER_DAMAGE * (newStreak - CRIT_THRESHOLD + CRIT_MULTIPLIER) : PLAYER_DAMAGE
       setStreak(newStreak)
+      const heal        = isCrit ? PLAYER_HEAL * (newStreak - CRIT_THRESHOLD + CRIT_MULTIPLIER) : PLAYER_HEAL
       const newBossHP   = Math.max(0, curBossHP - dmg)
-      const newPlayerHP = Math.min(PLAYER_MAX_HP, curPlayerHP + PLAYER_HEAL)
+      const newPlayerHP = Math.min(PLAYER_MAX_HP, curPlayerHP + heal)
       setBossHP(newBossHP)
       setPlayerHP(newPlayerHP)
       sound(playHit)
@@ -266,8 +267,8 @@ export default function Game({ onBack }) {
       setLastResult('correct')
       setCorrect(c => c + 1)
       setMessage(isCrit
-        ? `⚡ CRITICAL! -${dmg} to ${curBoss.name} · +${PLAYER_HEAL} HP`
-        : `✅ Hit! -${dmg} to ${curBoss.name} · +${PLAYER_HEAL} HP`)
+        ? `⚡ CRITICAL! -${dmg} to ${curBoss.name} · +${heal} HP`
+        : `✅ Hit! -${dmg} to ${curBoss.name} · +${heal} HP`)
 
       if (newBossHP <= 0) {
         const nextWave    = curWave + 1

@@ -148,25 +148,61 @@ function speakFull(word, meaning, example) {
 
 // ── Thai Note ─────────────────────────────────────────────────────────────────
 function ThaiNote({ wordId, initialNote = '' }) {
-  const [note, setNote] = useState(initialNote)
-  const timerRef = useRef(null)
+  const [note,       setNote]       = useState(initialNote)
+  const [saveStatus, setSaveStatus] = useState('idle') // 'idle'|'saving'|'saved'|'error'
+  const timerRef   = useRef(null)
+  const savedTimer = useRef(null)
+  const pendingRef = useRef(null)  // pending unsaved value, or null if clean
+  const mountedRef = useRef(true)
 
   const MAX = 120
+
+  function doSave(val) {
+    pendingRef.current = null
+    if (mountedRef.current) setSaveStatus('saving')
+    fetch(`/api/word-note/${wordId}`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ note: val }),
+    })
+      .then(() => {
+        if (!mountedRef.current) return
+        setSaveStatus('saved')
+        clearTimeout(savedTimer.current)
+        savedTimer.current = setTimeout(() => {
+          if (mountedRef.current) setSaveStatus('idle')
+        }, 2000)
+      })
+      .catch(() => {
+        if (mountedRef.current) setSaveStatus('error')
+      })
+  }
 
   function handleChange(e) {
     const val = e.target.value.slice(0, MAX)
     setNote(val)
+    pendingRef.current = val
+    setSaveStatus('idle')
     clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => {
-      fetch(`/api/word-note/${wordId}`, {
-        method : 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body   : JSON.stringify({ note: val }),
-      }).catch(() => {})
-    }, 600)
+    timerRef.current = setTimeout(() => doSave(val), 600)
   }
 
-  useEffect(() => () => clearTimeout(timerRef.current), [])
+  // Flush any unsaved note immediately on unmount (prevents loss when the user
+  // rates a word before the 600 ms debounce fires).
+  useEffect(() => () => {
+    mountedRef.current = false
+    clearTimeout(timerRef.current)
+    clearTimeout(savedTimer.current)
+    if (pendingRef.current !== null) doSave(pendingRef.current)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const statusEl = saveStatus === 'saving' ? (
+    <span className="text-xs text-yellow-400 animate-pulse">กำลังบันทึก…</span>
+  ) : saveStatus === 'saved' ? (
+    <span className="text-xs text-green-500">✓ บันทึกแล้ว</span>
+  ) : saveStatus === 'error' ? (
+    <span className="text-xs text-red-400">⚠ บันทึกไม่สำเร็จ</span>
+  ) : null
 
   return (
     <div className="mt-4 rounded-xl border-2 border-yellow-200 bg-yellow-50 px-4 py-3">
@@ -174,9 +210,12 @@ function ThaiNote({ wordId, initialNote = '' }) {
         <p className="text-xs font-semibold uppercase tracking-wider text-yellow-600">
           📝 โน็ตคำแปล
         </p>
-        <span className={`text-xs font-mono ${note.length >= MAX ? 'text-red-400' : 'text-yellow-400'}`}>
-          {note.length}/{MAX}
-        </span>
+        <div className="flex items-center gap-2">
+          {statusEl}
+          <span className={`text-xs font-mono ${note.length >= MAX ? 'text-red-400' : 'text-yellow-400'}`}>
+            {note.length}/{MAX}
+          </span>
+        </div>
       </div>
       <textarea
         value={note}
