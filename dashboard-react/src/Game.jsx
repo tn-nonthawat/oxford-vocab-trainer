@@ -266,6 +266,16 @@ export default function Game({ onBack }) {
     setTiles(prev => prev.map(t => t.id === tileId ? { ...t, used: false } : t))
   }
 
+  function skipWord() {
+    if (answerLocked) return
+    setAnswerLocked(true)
+    setStreak(0)
+    setLastResult('miss')
+    setWrong(w => w + 1)
+    setMessage(`⏭️ Skipped!`)
+    setTimeout(() => bossTurn(playerHP, wave, boss.name), 600)
+  }
+
   const removeLastRef = useRef(removeLast)
   useEffect(() => { removeLastRef.current = removeLast })
   useEffect(() => {
@@ -570,7 +580,7 @@ export default function Game({ onBack }) {
                 Tap letters to fill the blanks
               </p>
               <LetterTiles tiles={tiles} onTap={tapTile} disabled={false} />
-              <div className="flex justify-center mt-3">
+              <div className="flex justify-center gap-3 mt-3">
                 <button
                   onClick={removeLast}
                   disabled={filledLetters.every(l => l === null)}
@@ -580,6 +590,14 @@ export default function Game({ onBack }) {
                   style={{ background: 'rgba(127,29,29,0.2)' }}
                 >
                   ⌫ Backspace
+                </button>
+                <button
+                  onClick={skipWord}
+                  className="px-4 py-2 rounded-xl text-sm font-bold transition-all duration-150 select-none
+                    text-yellow-300 border border-yellow-800 hover:bg-yellow-900/40 active:scale-95"
+                  style={{ background: 'rgba(120,80,0,0.2)' }}
+                >
+                  ⏭️ Skip (boss attacks)
                 </button>
               </div>
             </>
