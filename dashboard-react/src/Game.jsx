@@ -284,7 +284,7 @@ export default function Game({ onBack }) {
         return
       }
 
-      setTimeout(() => bossTurn(newPlayerHP, curWave, curBoss.name), 1400)
+      setTimeout(() => { setWordIdx(i => i + 1); setPhase('player-turn') }, 1000)
     } else {
       sound(playMiss)
       setStreak(0)
