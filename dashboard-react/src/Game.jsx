@@ -177,6 +177,7 @@ export default function Game({ onBack }) {
   const [blankedIndices, setBlankedIndices] = useState([])
   const [tiles,          setTiles]          = useState([])
   const [filledLetters,  setFilledLetters]  = useState([])
+  const [filledTileIds,  setFilledTileIds]  = useState([])
   const [answerLocked,   setAnswerLocked]   = useState(false)
 
   // Feedback
@@ -219,6 +220,7 @@ export default function Game({ onBack }) {
     setBlankedIndices(blanked)
     setTiles(buildTiles(w.word, blanked))
     setFilledLetters(new Array(blanked.length).fill(null))
+    setFilledTileIds(new Array(blanked.length).fill(null))
     setLastResult(null)
     setMessage('')
     setAnswerLocked(false)
@@ -236,6 +238,9 @@ export default function Game({ onBack }) {
     const newFilled = [...filledLetters]
     newFilled[nextSlot] = tile.letter
     setFilledLetters(newFilled)
+    const newFilledTileIds = [...filledTileIds]
+    newFilledTileIds[nextSlot] = tileId
+    setFilledTileIds(newFilledTileIds)
     setTiles(prev => prev.map(t => t.id === tileId ? { ...t, used: true } : t))
 
     if (nextSlot === blankedIndices.length - 1) {
@@ -247,6 +252,27 @@ export default function Game({ onBack }) {
       setTimeout(() => resolveAnswer(isCorrect, currentWord, playerHP, bossHP, wave, streak), 300)
     }
   }
+
+  function removeLast() {
+    if (answerLocked) return
+    let lastSlot = -1
+    for (let i = filledLetters.length - 1; i >= 0; i--) {
+      if (filledLetters[i] !== null) { lastSlot = i; break }
+    }
+    if (lastSlot === -1) return
+    const tileId = filledTileIds[lastSlot]
+    setFilledLetters(prev => { const a = [...prev]; a[lastSlot] = null; return a })
+    setFilledTileIds(prev => { const a = [...prev]; a[lastSlot] = null; return a })
+    setTiles(prev => prev.map(t => t.id === tileId ? { ...t, used: false } : t))
+  }
+
+  const removeLastRef = useRef(removeLast)
+  useEffect(() => { removeLastRef.current = removeLast })
+  useEffect(() => {
+    function onKey(e) { if (e.key === 'Backspace') removeLastRef.current() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   function resolveAnswer(isCorrect, wordStr, curPlayerHP, curBossHP, curWave, curStreak) {
     const curBoss = BOSSES[Math.min(curWave - 1, BOSSES.length - 1)]
@@ -544,6 +570,18 @@ export default function Game({ onBack }) {
                 Tap letters to fill the blanks
               </p>
               <LetterTiles tiles={tiles} onTap={tapTile} disabled={false} />
+              <div className="flex justify-center mt-3">
+                <button
+                  onClick={removeLast}
+                  disabled={filledLetters.every(l => l === null)}
+                  className="px-4 py-2 rounded-xl text-sm font-bold transition-all duration-150 select-none
+                    disabled:text-gray-600 disabled:cursor-not-allowed
+                    enabled:text-red-300 enabled:border enabled:border-red-800 enabled:hover:bg-red-900/40 enabled:active:scale-95"
+                  style={{ background: 'rgba(127,29,29,0.2)' }}
+                >
+                  ⌫ Backspace
+                </button>
+              </div>
             </>
           ) : (
             <p className="text-xs text-gray-600 text-center py-2 select-none">
