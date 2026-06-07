@@ -60,11 +60,9 @@ def _progress_stats(user_id: int) -> dict:
     )
     due = cur.fetchone()["n"]
 
-    # Words first learned today (created_at = today, repetitions = 1)
-    # repetitions=1 ensures we count only first-time introduction, not re-entries
     cur.execute(
         "SELECT COUNT(*) AS n FROM progress "
-        "WHERE user_id = ? AND created_at = ? AND repetitions = 1",
+        "WHERE user_id = ? AND created_at = ?",
         (user_id, today),
     )
     new_today = cur.fetchone()["n"]
