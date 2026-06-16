@@ -199,6 +199,8 @@ function useDashboardStats() {
               nextMasteredDate : json.next_mastered_date ?? null,
             },
             newToday: json.new_today ?? 0,
+            joinedDate: json.joined_date ?? null,
+            daysActive: json.days_active ?? null,
           })
         }
       })
@@ -1351,7 +1353,7 @@ export default function Dashboard({ onStartSession, onStartGame, onViewProgress 
   if (loading) return <LoadingScreen />
   if (error)   return <ErrorScreen message={error} />
 
-  const { username, total, levelCounts, progress, mastery, streak, newToday } = data
+  const { username, total, levelCounts, progress, mastery, streak, newToday, joinedDate, daysActive } = data
 
   // ── Shared navbar ──────────────────────────────────────────────────────────
   const Navbar = (
@@ -1405,9 +1407,17 @@ export default function Dashboard({ onStartSession, onStartGame, onViewProgress 
                             animate-slideUp origin-top-right">
 
               {/* Username header */}
-              <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-2">
-                <span className="text-base">👤</span>
-                <span className="text-sm font-semibold text-gray-700 truncate">{username}</span>
+              <div className="px-4 py-2 border-b border-gray-100">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">👤</span>
+                  <span className="text-sm font-semibold text-gray-700 truncate">{username}</span>
+                </div>
+                {joinedDate && (
+                  <div className="text-xs text-gray-400 mt-0.5 pl-6">
+                    Joined {new Date(joinedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {daysActive != null && ` · Day ${daysActive}`}
+                  </div>
+                )}
               </div>
 
               {/* Edit Layout / Done */}

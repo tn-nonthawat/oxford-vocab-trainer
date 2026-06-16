@@ -11,9 +11,10 @@ Public API
   _mastery_stats(user_id)   -> dict  {mastered, learning, struggling}
   _get_streak(user_id)      -> int
   _update_streak(user_id)   -> int   (upserts user_stats row, returns new streak)
+  _get_join_info(user_id)   -> dict  {joined_date, days_active}
 """
 
-from datetime import timedelta
+from datetime import date, timedelta
 
 from database import get_connection
 from services.date_service import get_current_date
@@ -189,3 +190,22 @@ def _update_streak(user_id: int) -> int:
     conn.commit()
     conn.close()
     return streak
+
+
+# ── Join info ─────────────────────────────────────────────────────────────────
+
+def _get_join_info(user_id: int) -> dict:
+    """Return {joined_date, days_active} based on users.created_at."""
+    conn = get_connection()
+    cur  = conn.cursor()
+    cur.execute("SELECT created_at FROM users WHERE id = ?", (user_id,))
+    row = cur.fetchone()
+    conn.close()
+
+    joined_date = row["created_at"] if row else None
+    days_active = None
+    if joined_date:
+        joined = date.fromisoformat(joined_date)
+        days_active = (get_current_date() - joined).days + 1
+
+    return {"joined_date": joined_date, "days_active": days_active}

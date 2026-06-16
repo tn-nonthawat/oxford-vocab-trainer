@@ -26,6 +26,7 @@ from services.date_service import get_current_date
 from services.dictionary import fetch_meaning
 from services.importer import _snapshot, _start_import
 from services.stats import (
+    _get_join_info,
     _get_streak,
     _mastery_stats,
     _progress_stats,
@@ -263,6 +264,7 @@ def api_stats():
     progress = _progress_stats(user_id)
     streak   = _get_streak(user_id)
     mastery  = _mastery_stats(user_id)
+    join_info = _get_join_info(user_id)
     return jsonify({
         "username"    : session.get("username", ""),
         "total"       : total,
@@ -270,6 +272,7 @@ def api_stats():
         **progress,
         "streak"      : streak,
         **mastery,
+        **join_info,
     })
 
 
