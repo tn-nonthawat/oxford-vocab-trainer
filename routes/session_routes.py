@@ -509,6 +509,28 @@ def api_analytics_forecast():
     return jsonify({"forecast": rows, "today": today_str})
 
 
+@session_bp.route("/api/analytics/heatmap")
+@login_required
+@limiter.limit("30 per minute")
+def api_analytics_heatmap():
+    """Review activity (all submitted ratings) per day for the last 126 days."""
+    user_id = session["user_id"]
+    today   = get_current_date()
+    since   = (today - timedelta(days=125)).strftime("%Y-%m-%d")
+    conn    = get_connection()
+    cur     = conn.cursor()
+    cur.execute("""
+        SELECT reviewed_at AS date, COUNT(*) AS count
+        FROM   review_log
+        WHERE  user_id = ? AND reviewed_at >= ?
+        GROUP  BY reviewed_at
+        ORDER  BY reviewed_at
+    """, (user_id, since))
+    rows = [dict(r) for r in cur.fetchall()]
+    conn.close()
+    return jsonify({"heatmap": rows, "today": today.strftime("%Y-%m-%d")})
+
+
 @session_bp.route("/api/analytics/breakdown")
 @login_required
 @limiter.limit("30 per minute")

@@ -31,8 +31,9 @@ function useAnalytics() {
       fetch('/api/analytics/history',   { credentials: 'include' }).then(r => r.json()),
       fetch('/api/analytics/forecast',  { credentials: 'include' }).then(r => r.json()),
       fetch('/api/analytics/breakdown', { credentials: 'include' }).then(r => r.json()),
+      fetch('/api/analytics/heatmap',   { credentials: 'include' }).then(r => r.json()),
     ])
-      .then(([hist, fore, brk]) => { if (!cancelled) setData({ hist, fore, brk }) })
+      .then(([hist, fore, brk, heat]) => { if (!cancelled) setData({ hist, fore, brk, heat }) })
       .catch(e => { if (!cancelled) setError(e.message) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
@@ -397,6 +398,102 @@ function HardestWords({ brk }) {
   )
 }
 
+// ── Activity Heatmap — GitHub-style calendar, last 18 weeks ──────────────────
+
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const HEATMAP_WEEKS = 18
+
+function startOfWeek(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00')
+  d.setDate(d.getDate() - d.getDay())
+  return d.toISOString().slice(0, 10)
+}
+
+function levelClass(count, max) {
+  if (count <= 0) return 'bg-gray-100'
+  const ratio = count / max
+  if (ratio <= 0.25) return 'bg-emerald-200'
+  if (ratio <= 0.5)  return 'bg-emerald-400'
+  if (ratio <= 0.75) return 'bg-emerald-500'
+  return 'bg-emerald-600'
+}
+
+function ActivityHeatmap({ heat }) {
+  const todayStr = heat?.today ?? new Date().toISOString().slice(0, 10)
+
+  const { weeks, maxCount, totalCount } = useMemo(() => {
+    const lookup = {}
+    for (const r of (heat?.heatmap ?? [])) lookup[r.date] = r.count
+
+    const gridStart = startOfWeek(addDays(todayStr, -(HEATMAP_WEEKS * 7 - 1)))
+    const wks = []
+    let max = 1
+    let total = 0
+    for (let w = 0; w < HEATMAP_WEEKS; w++) {
+      const cells = []
+      for (let d = 0; d < 7; d++) {
+        const date  = addDays(gridStart, w * 7 + d)
+        const future = date > todayStr
+        const count  = future ? null : (lookup[date] ?? 0)
+        if (count) { max = Math.max(max, count); total += count }
+        cells.push({ date, count, future })
+      }
+      wks.push(cells)
+    }
+    return { weeks: wks, maxCount: max, totalCount: total }
+  }, [heat, todayStr])
+
+  const activeDays = weeks.flat().filter(c => c.count > 0).length
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+      <div className="flex items-start justify-between mb-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-700">🟩 Activity Heatmap</p>
+          <p className="text-xs text-gray-400 mt-0.5">Words reviewed per day · last {HEATMAP_WEEKS} weeks</p>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-sm font-bold text-emerald-600 tabular-nums">{totalCount}</p>
+          <p className="text-xs text-gray-400">{activeDays} active days</p>
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <div className="inline-flex gap-[3px]">
+          {weeks.map((cells, w) => {
+            const sunday    = cells[0].date
+            const showMonth = w === 0 || new Date(sunday + 'T00:00:00').getDate() <= 7
+            return (
+              <div key={sunday} className="flex flex-col gap-[3px]">
+                <div className="text-xs text-gray-400 h-4 select-none">
+                  {showMonth ? MONTH_LABELS[new Date(sunday + 'T00:00:00').getMonth()] : ''}
+                </div>
+                {cells.map(({ date, count, future }) => (
+                  <div
+                    key={date}
+                    title={future ? '' : `${fmtMed(date)}: ${count} review${count === 1 ? '' : 's'}`}
+                    className={`w-3 h-3 rounded-sm ${future ? 'bg-transparent' : levelClass(count, maxCount)}`}
+                  />
+                ))}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5 mt-3 text-xs text-gray-400 select-none">
+        Less
+        <span className="w-3 h-3 rounded-sm bg-gray-100" />
+        <span className="w-3 h-3 rounded-sm bg-emerald-200" />
+        <span className="w-3 h-3 rounded-sm bg-emerald-400" />
+        <span className="w-3 h-3 rounded-sm bg-emerald-500" />
+        <span className="w-3 h-3 rounded-sm bg-emerald-600" />
+        More
+      </div>
+    </div>
+  )
+}
+
 // ── Main ───────────────────────────────────────────────────────────────────────
 
 export default function Progress({ onBack }) {
@@ -445,6 +542,7 @@ export default function Progress({ onBack }) {
               totalWords={data.brk?.health?.total_words}
               totalIntroduced={data.brk?.health?.total_introduced}
             />
+            <ActivityHeatmap heat={data.heat} />
             <div className="grid sm:grid-cols-2 gap-4">
               <WeeklyPattern brk={data.brk} />
               <ForecastChart fore={data.fore} />
